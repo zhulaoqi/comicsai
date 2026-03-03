@@ -1,12 +1,13 @@
 package com.comicsai.ai;
 
+import com.comicsai.ai.gemini.GeminiTextProvider;
 import com.comicsai.ai.openai.DallEImageProvider;
-import com.comicsai.ai.openai.OpenAiTextProvider;
 import com.comicsai.ai.qwen.QwenTextProvider;
 import com.comicsai.ai.qwen.WanxiangImageProvider;
 import com.comicsai.common.exception.AiProviderException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -29,18 +30,17 @@ public class AiProviderFactory {
     private final Map<String, TextAiProvider> textProviders = new LinkedHashMap<>();
     private final Map<String, ImageAiProvider> imageProviders = new LinkedHashMap<>();
 
+    @Autowired
     public AiProviderFactory(
-            @Value("${ai.openai.api-key:}") String openaiApiKey,
-            @Value("${ai.openai.base-url:https://api.openai.com}") String openaiBaseUrl,
+            @Value("${ai.gemini.api-key:}") String geminiApiKey,
             @Value("${ai.qwen.api-key:}") String qwenApiKey,
             @Value("${ai.qwen.base-url:https://dashscope.aliyuncs.com}") String qwenBaseUrl) {
 
         // Register text providers (insertion order = fallback order)
-        textProviders.put("openai", new OpenAiTextProvider(openaiApiKey, openaiBaseUrl));
+        textProviders.put("gemini", new GeminiTextProvider(geminiApiKey));
         textProviders.put("qwen", new QwenTextProvider(qwenApiKey, qwenBaseUrl));
 
         // Register image providers
-        imageProviders.put("dall-e", new DallEImageProvider(openaiApiKey, openaiBaseUrl));
         imageProviders.put("wanxiang", new WanxiangImageProvider(qwenApiKey, qwenBaseUrl));
 
         log.info("AI Provider Factory initialized with text providers: {}, image providers: {}",
