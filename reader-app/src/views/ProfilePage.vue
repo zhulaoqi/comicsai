@@ -7,6 +7,9 @@
         </svg>
       </button>
       <h1 class="profile-header__title">个人中心</h1>
+      <button class="profile-header__logout" @click="handleLogout" :disabled="logoutLoading" aria-label="退出登录">
+        {{ logoutLoading ? '...' : '退出' }}
+      </button>
     </header>
 
     <main class="profile-content container">
@@ -80,15 +83,24 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import { getUserProfileApi, getRechargeRecordsApi, type UserProfile, type RechargeRecord } from '../api/user'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const loading = ref(true)
 const error = ref('')
+const logoutLoading = ref(false)
 const profile = ref<UserProfile | null>(null)
 const rechargeRecords = ref<RechargeRecord[]>([])
 const recordsLoading = ref(false)
+
+async function handleLogout() {
+  logoutLoading.value = true
+  await authStore.logout()
+  router.push({ name: 'Home' })
+}
 
 const avatarLetter = computed(() => {
   return profile.value?.nickname?.charAt(0).toUpperCase() ?? '?'
@@ -166,6 +178,24 @@ onMounted(async () => {
 .profile-header__back:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+.profile-header__logout {
+  margin-left: auto;
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.profile-header__logout:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+}
+
+.profile-header__logout:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .profile-header__title {

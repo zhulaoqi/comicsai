@@ -18,6 +18,7 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     public static final String USER_ID_ATTR = "currentUserId";
     private static final String SESSION_KEY_PREFIX = "user:session:";
+    private static final String ADMIN_SESSION_PREFIX = "admin:session:";
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -32,33 +33,35 @@ public class JwtInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // Check if the method or class requires authentication
         boolean requireAuth = handlerMethod.hasMethodAnnotation(RequireAuth.class)
                 || handlerMethod.getBeanType().isAnnotationPresent(RequireAuth.class);
 
+        boolean isAdminPath = request.getRequestURI().startsWith("/api/admin/");
         String token = extractToken(request);
 
-        // If token is present, always try to parse and set user context
         if (token != null && jwtUtil.validateToken(token)) {
-            // Check if session exists in Redis
-            Boolean sessionExists = redisTemplate.hasKey(SESSION_KEY_PREFIX + token);
-            if (Boolean.TRUE.equals(sessionExists)) {
-                Long userId = jwtUtil.getUserIdFromToken(token);
-                request.setAttribute(USER_ID_ATTR, userId);
-
-                if (!requireAuth) {
+            if (isAdminPath) {
+                // Admin path: validate against admin session store
+                Boolean adminSession = redisTemplate.hasKey(ADMIN_SESSION_PREFIX + token);
+                if (Boolean.TRUE.equals(adminSession)) {
                     return true;
                 }
-                return true;
+                throw new AuthenticationException("管理员未登录或登录已过期");
+            } else {
+                // Reader path: validate against user session store
+                Boolean sessionExists = redisTemplate.hasKey(SESSION_KEY_PREFIX + token);
+                if (Boolean.TRUE.equals(sessionExists)) {
+                    Long userId = jwtUtil.getUserIdFromToken(token);
+                    request.setAttribute(USER_ID_ATTR, userId);
+                    return true;
+                }
             }
         }
 
-        // If auth is required but no valid token/session, reject
-        if (requireAuth) {
+        if (requireAuth || isAdminPath) {
             throw new AuthenticationException("未认证，请先登录");
         }
 
-        // No auth required, allow through (guest access)
         return true;
     }
 

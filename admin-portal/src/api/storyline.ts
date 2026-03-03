@@ -38,8 +38,8 @@ export interface GenerationConfig {
 }
 
 export const storylineApi = {
-  list(): Promise<ApiResponse<Storyline[]>> {
-    return request.get('/storylines').then(r => r.data)
+  list(): Promise<ApiResponse<{ records: Storyline[]; total: number } | Storyline[]>> {
+    return request.get('/storylines', { params: { page: 1, size: 100 } }).then(r => r.data)
   },
 
   create(data: StorylineForm): Promise<ApiResponse<StorylineDetail>> {
@@ -63,6 +63,10 @@ export const storylineApi = {
   },
 
   saveGenerationConfig(id: number, data: GenerationConfig): Promise<ApiResponse<GenerationConfig>> {
-    return request.post(`/storylines/${id}/generation-config`, data).then(r => r.data)
+    return request.put(`/storylines/${id}/generation-config`, data).then(r => r.data)
+  },
+
+  generate(id: number): Promise<ApiResponse<void>> {
+    return request.post(`/storylines/${id}/generate`).then(r => r.data)
   },
 }

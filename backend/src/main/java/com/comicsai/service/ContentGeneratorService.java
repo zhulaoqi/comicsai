@@ -417,10 +417,10 @@ public class ContentGeneratorService {
 
     GenerationConfig getDefaultGenerationConfig() {
         GenerationConfig config = new GenerationConfig();
-        config.setTextProvider("openai");
-        config.setTextModel("gpt-4");
-        config.setImageProvider("dall-e");
-        config.setImageModel("dall-e-3");
+        config.setTextProvider("gemini");
+        config.setTextModel("gemini-1.5-flash");
+        config.setImageProvider("wanxiang");
+        config.setImageModel("wanx-v1");
         config.setTemperature(0.7);
         config.setMaxTokens(2000);
         config.setImageStyle("anime");

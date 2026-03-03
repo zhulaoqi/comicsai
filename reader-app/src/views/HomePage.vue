@@ -2,11 +2,19 @@
   <div class="home-page">
     <header class="home-header">
       <h1 class="home-header__title">发现</h1>
-      <router-link :to="{ name: 'Search' }" class="home-header__search" aria-label="搜索">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-      </router-link>
+      <div class="home-header__actions">
+        <router-link :to="{ name: 'Search' }" class="home-header__icon-btn" aria-label="搜索">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </router-link>
+        <router-link v-if="isLoggedIn" :to="{ name: 'Profile' }" class="home-header__avatar" aria-label="个人中心">
+          {{ avatarLetter }}
+        </router-link>
+        <router-link v-else :to="{ name: 'Login' }" class="home-header__login-btn">
+          登录
+        </router-link>
+      </div>
     </header>
 
     <nav class="category-tabs" role="tablist" aria-label="内容分类">
@@ -48,11 +56,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { getContentsApi, type ContentItem, type ContentType } from '../api/content'
+import { useAuthStore } from '../stores/auth'
 import ContentCard from '../components/ContentCard.vue'
 import InfiniteScroll from '../components/InfiniteScroll.vue'
 import SkeletonLoader from '../components/SkeletonLoader.vue'
+
+const authStore = useAuthStore()
+const isLoggedIn = computed(() => authStore.isLoggedIn)
+const avatarLetter = computed(() => authStore.user?.nickname?.charAt(0).toUpperCase() ?? '我')
 
 interface Tab {
   label: string
@@ -135,7 +148,13 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
-.home-header__search {
+.home-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.home-header__icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -146,9 +165,44 @@ onMounted(() => {
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.home-header__search:hover {
+.home-header__icon-btn:hover {
   background: var(--color-bg-hover);
   color: var(--color-primary);
+}
+
+.home-header__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+.home-header__avatar:hover {
+  opacity: 0.85;
+}
+
+.home-header__login-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+
+.home-header__login-btn:hover {
+  background: var(--color-primary-dark);
+  color: var(--color-text-inverse);
 }
 
 .category-tabs {

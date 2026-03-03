@@ -6,12 +6,15 @@ import com.comicsai.model.dto.StorylineCreateDTO;
 import com.comicsai.model.dto.StorylineQueryDTO;
 import com.comicsai.model.dto.StorylineUpdateDTO;
 import com.comicsai.model.entity.GenerationConfig;
+import com.comicsai.model.entity.Storyline;
+import com.comicsai.model.entity.Content;
 import com.comicsai.model.enums.ContentType;
 import com.comicsai.model.enums.StorylineStatus;
 import com.comicsai.model.vo.GenerationConfigVO;
 import com.comicsai.model.vo.PageVO;
 import com.comicsai.model.vo.StorylineDetailVO;
 import com.comicsai.model.vo.StorylineVO;
+import com.comicsai.service.ContentGeneratorService;
 import com.comicsai.service.StorylineService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -23,9 +26,12 @@ import java.util.Map;
 public class StorylineController {
 
     private final StorylineService storylineService;
+    private final ContentGeneratorService contentGeneratorService;
 
-    public StorylineController(StorylineService storylineService) {
+    public StorylineController(StorylineService storylineService,
+                               ContentGeneratorService contentGeneratorService) {
         this.storylineService = storylineService;
+        this.contentGeneratorService = contentGeneratorService;
     }
 
     @GetMapping
@@ -83,5 +89,15 @@ public class StorylineController {
     public ApiResponse<GenerationConfigVO> getGenerationConfig(@PathVariable Long id) {
         GenerationConfig config = storylineService.getGenerationConfig(id);
         return ApiResponse.success(GenerationConfigVO.fromEntity(config));
+    }
+
+    @PostMapping("/{id}/generate")
+    public ApiResponse<Void> triggerGeneration(@PathVariable Long id) {
+        Storyline storyline = storylineService.getStorylineById(id);
+        Content result = contentGeneratorService.generateContentForStoryline(storyline);
+        if (result == null) {
+            return ApiResponse.error(500, "内容生成失败，请检查AI配置和API Key是否正确");
+        }
+        return ApiResponse.success();
     }
 }

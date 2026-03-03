@@ -49,7 +49,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
                         "/api/reader/auth/register",
-                        "/api/reader/auth/login"
+                        "/api/reader/auth/login",
+                        "/api/reader/oauth/**",
+                        "/api/admin/auth/login"
                 );
     }
 }

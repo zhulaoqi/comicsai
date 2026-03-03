@@ -226,6 +226,7 @@ npm run build
 ## 文档
 
 - 详细启动说明与常见问题：[`QUICK_START.md`](./QUICK_START.md)
+- AI 对接与首条内容生成闭环：[`QUICK_START.md#5-ai-对接与首条内容生成必做`](./QUICK_START.md#5-ai-%E5%AF%B9%E6%8E%A5%E4%B8%8E%E9%A6%96%E6%9D%A1%E5%86%85%E5%AE%B9%E7%94%9F%E6%88%90%E5%BF%85%E5%81%9A)
 
 ## 许可证
 

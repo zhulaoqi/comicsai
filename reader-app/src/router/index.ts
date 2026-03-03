@@ -39,6 +39,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/RechargePage.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/oauth/callback',
+    name: 'OAuthCallback',
+    component: () => import('../views/OAuthCallbackPage.vue'),
+  },
 ]
 
 const router = createRouter({

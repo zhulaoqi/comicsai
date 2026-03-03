@@ -32,10 +32,11 @@
       <el-table-column prop="createdAt" label="创建时间" width="160">
         <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="openEditDialog(row.id)">编辑</el-button>
           <el-button size="small" type="info" @click="openConfigDialog(row.id)">生成配置</el-button>
+          <el-button size="small" type="success" :loading="generatingId === row.id" @click="handleGenerate(row)">生成</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -120,8 +121,8 @@
         <el-divider content-position="left">文本生成</el-divider>
         <el-form-item label="文本 Provider" prop="textProvider">
           <el-select v-model="configForm.textProvider" placeholder="选择Provider" style="width:100%" @change="onTextProviderChange">
-            <el-option label="OpenAI" value="OpenAI" />
-            <el-option label="通义千问 (Qwen)" value="Qwen" />
+            <el-option label="Gemini" value="gemini" />
+            <el-option label="通义千问 (Qwen)" value="qwen" />
           </el-select>
         </el-form-item>
         <el-form-item label="文本模型" prop="textModel">
@@ -141,8 +142,7 @@
         <el-divider content-position="left">图像生成</el-divider>
         <el-form-item label="图像 Provider" prop="imageProvider">
           <el-select v-model="configForm.imageProvider" placeholder="选择Provider" style="width:100%" @change="onImageProviderChange">
-            <el-option label="OpenAI (DALL-E)" value="OpenAI" />
-            <el-option label="通义万象 (Qwen)" value="Qwen" />
+            <el-option label="通义万象 (Wanxiang)" value="wanxiang" />
           </el-select>
         </el-form-item>
         <el-form-item label="图像模型" prop="imageModel">
@@ -183,6 +183,7 @@ import { storylineApi, type Storyline, type StorylineForm, type GenerationConfig
 const loading = ref(false)
 const storylines = ref<Storyline[]>([])
 const togglingId = ref<number | null>(null)
+const generatingId = ref<number | null>(null)
 
 // Storyline form dialog
 const dialogVisible = ref(false)
@@ -209,10 +210,10 @@ const configSubmitting = ref(false)
 const configFormRef = ref<FormInstance>()
 
 const configForm = reactive<GenerationConfig>({
-  textProvider: 'OpenAI',
-  textModel: 'gpt-4o',
-  imageProvider: 'OpenAI',
-  imageModel: 'dall-e-3',
+  textProvider: 'gemini',
+  textModel: 'gemini-2.0-flash',
+  imageProvider: 'wanxiang',
+  imageModel: 'wanx-v1',
   textTemperature: 0.8,
   imageSize: '1024x1024',
   chaptersPerGeneration: 1,
@@ -222,12 +223,12 @@ const configForm = reactive<GenerationConfig>({
 const genreOptions = ['奇幻', '科幻', '武侠', '都市', '历史', '悬疑', '言情', '恐怖', '其他']
 
 const textModels: Record<string, { label: string; value: string }[]> = {
-  OpenAI: [
-    { label: 'GPT-4o', value: 'gpt-4o' },
-    { label: 'GPT-4o Mini', value: 'gpt-4o-mini' },
-    { label: 'GPT-4 Turbo', value: 'gpt-4-turbo' },
+  gemini: [
+    { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
+    { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
+    { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash' },
   ],
-  Qwen: [
+  qwen: [
     { label: 'Qwen-Max', value: 'qwen-max' },
     { label: 'Qwen-Plus', value: 'qwen-plus' },
     { label: 'Qwen-Turbo', value: 'qwen-turbo' },
@@ -235,19 +236,14 @@ const textModels: Record<string, { label: string; value: string }[]> = {
 }
 
 const imageModels: Record<string, { label: string; value: string }[]> = {
-  OpenAI: [
-    { label: 'DALL-E 3', value: 'dall-e-3' },
-    { label: 'DALL-E 2', value: 'dall-e-2' },
-  ],
-  Qwen: [
+  wanxiang: [
     { label: 'Wanx v1', value: 'wanx-v1' },
     { label: 'Wanx Lite', value: 'wanx-lite' },
   ],
 }
 
 const imageSizes = {
-  OpenAI: ['1024x1024', '1792x1024', '1024x1792'],
-  Qwen: ['1024x1024', '720x1280', '1280x720'],
+  wanxiang: ['1024x1024', '720x1280', '1280x720'],
 }
 
 const textModelOptions = computed(() => textModels[configForm.textProvider] ?? [])
@@ -293,7 +289,8 @@ async function fetchStorylines() {
   loading.value = true
   try {
     const res = await storylineApi.list()
-    storylines.value = res.data ?? []
+    const data = res.data as any
+    storylines.value = Array.isArray(data) ? data : (data?.records ?? [])
   } catch {
     ElMessage.error('加载故事线列表失败')
   } finally {
@@ -363,7 +360,7 @@ async function submitForm() {
 }
 
 async function handleToggleStatus(row: Storyline, active: boolean) {
-  const newStatus = active ? 'ACTIVE' : 'INACTIVE'
+  const newStatus = active ? 'ENABLED' : 'DISABLED'
   const label = active ? '启用' : '停用'
   try {
     await ElMessageBox.confirm(`确定要${label}「${row.title}」吗？`, '提示', {
@@ -378,12 +375,34 @@ async function handleToggleStatus(row: Storyline, active: boolean) {
   togglingId.value = row.id
   try {
     await storylineApi.toggleStatus(row.id, newStatus)
-    row.status = newStatus
+    row.status = active ? 'ACTIVE' : 'INACTIVE'
     ElMessage.success(`已${label}`)
   } catch {
     // error handled by interceptor
   } finally {
     togglingId.value = null
+  }
+}
+
+// ── Manual Generate ────────────────────────────────────────────────────────
+async function handleGenerate(row: Storyline) {
+  if (row.status !== 'ACTIVE') {
+    ElMessage.warning('请先启用该故事线再生成内容')
+    return
+  }
+  generatingId.value = row.id
+  try {
+    const res = await storylineApi.generate(row.id)
+    if (res.code !== 200) {
+      ElMessage.error(res.message || '生成失败')
+    } else {
+      ElMessage.success('生成成功，内容已进入审核队列')
+      fetchStorylines()
+    }
+  } catch {
+    // error handled by interceptor
+  } finally {
+    generatingId.value = null
   }
 }
 

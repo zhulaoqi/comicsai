@@ -90,11 +90,11 @@ export const contentApi = {
   },
 
   publish(id: number): Promise<ApiResponse<void>> {
-    return request.put(`/contents/${id}/publish`).then(r => r.data)
+    return request.put(`/contents/${id}/status`, { action: 'PUBLISH' }).then(r => r.data)
   },
 
   unpublish(id: number): Promise<ApiResponse<void>> {
-    return request.put(`/contents/${id}/unpublish`).then(r => r.data)
+    return request.put(`/contents/${id}/status`, { action: 'UNPUBLISH' }).then(r => r.data)
   },
 
   setPaid(id: number, body: PaidBody): Promise<ApiResponse<void>> {
