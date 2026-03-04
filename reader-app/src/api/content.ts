@@ -10,7 +10,20 @@ export interface ContentItem {
   description: string
   isPaid: boolean
   price: number | null
+  freeChapterCount: number
   publishedAt: string
+}
+
+export interface NovelChapterVO {
+  id: number
+  contentId: number
+  chapterNumber: number
+  chapterTitle: string
+  chapterText: string | null
+  chapterSummary: string | null
+  price: number | null
+  accessible: boolean
+  chapterPrice: number | null
 }
 
 export interface PageData<T> {
@@ -39,4 +52,8 @@ export function searchContentsApi(keyword: string, page = 1, size = 10) {
   return request.get<ApiResponse<PageData<ContentItem>>>('/reader/contents/search', {
     params: { keyword, page, size },
   })
+}
+
+export function unlockChapterApi(chapterId: number) {
+  return request.post<ApiResponse<void>>(`/reader/contents/chapters/${chapterId}/unlock`)
 }

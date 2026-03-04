@@ -11,6 +11,10 @@ public class PaidDTO {
 
     private BigDecimal price;
 
+    private Integer freeChapterCount;
+
+    private BigDecimal defaultChapterPrice;
+
     public PaidDTO() {}
 
     public Boolean getIsPaid() { return isPaid; }
@@ -18,4 +22,10 @@ public class PaidDTO {
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
+
+    public Integer getFreeChapterCount() { return freeChapterCount; }
+    public void setFreeChapterCount(Integer freeChapterCount) { this.freeChapterCount = freeChapterCount; }
+
+    public BigDecimal getDefaultChapterPrice() { return defaultChapterPrice; }
+    public void setDefaultChapterPrice(BigDecimal defaultChapterPrice) { this.defaultChapterPrice = defaultChapterPrice; }
 }

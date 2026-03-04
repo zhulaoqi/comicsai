@@ -37,6 +37,12 @@ public class Content {
     @TableField("is_paid")
     private Boolean isPaid;
 
+    @TableField("free_chapter_count")
+    private Integer freeChapterCount;
+
+    @TableField("default_chapter_price")
+    private BigDecimal defaultChapterPrice;
+
     @TableField("price")
     private BigDecimal price;
 
@@ -77,6 +83,12 @@ public class Content {
 
     public Boolean getIsPaid() { return isPaid; }
     public void setIsPaid(Boolean isPaid) { this.isPaid = isPaid; }
+
+    public Integer getFreeChapterCount() { return freeChapterCount; }
+    public void setFreeChapterCount(Integer freeChapterCount) { this.freeChapterCount = freeChapterCount; }
+
+    public BigDecimal getDefaultChapterPrice() { return defaultChapterPrice; }
+    public void setDefaultChapterPrice(BigDecimal defaultChapterPrice) { this.defaultChapterPrice = defaultChapterPrice; }
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }

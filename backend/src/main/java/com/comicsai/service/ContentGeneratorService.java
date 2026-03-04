@@ -4,10 +4,16 @@ import com.comicsai.ai.pipeline.ComicPipeline;
 import com.comicsai.ai.pipeline.GenerationPipeline;
 import com.comicsai.ai.pipeline.NovelPipeline;
 import com.comicsai.common.exception.AiProviderException;
+import com.comicsai.common.exception.BusinessException;
+import com.comicsai.common.exception.EntityNotFoundException;
+import com.comicsai.mapper.ContentMapper;
+import com.comicsai.mapper.NovelChapterMapper;
 import com.comicsai.mapper.StorylineMapper;
 import com.comicsai.model.entity.Content;
 import com.comicsai.model.entity.GenerationConfig;
+import com.comicsai.model.entity.NovelChapter;
 import com.comicsai.model.entity.Storyline;
+import com.comicsai.model.enums.ContentStatus;
 import com.comicsai.model.enums.ContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,15 +38,21 @@ public class ContentGeneratorService {
 
     private final StorylineService storylineService;
     private final StorylineMapper storylineMapper;
+    private final ContentMapper contentMapper;
+    private final NovelChapterMapper novelChapterMapper;
     private final ComicPipeline comicPipeline;
     private final NovelPipeline novelPipeline;
 
     public ContentGeneratorService(StorylineService storylineService,
                                    StorylineMapper storylineMapper,
+                                   ContentMapper contentMapper,
+                                   NovelChapterMapper novelChapterMapper,
                                    ComicPipeline comicPipeline,
                                    NovelPipeline novelPipeline) {
         this.storylineService = storylineService;
         this.storylineMapper = storylineMapper;
+        this.contentMapper = contentMapper;
+        this.novelChapterMapper = novelChapterMapper;
         this.comicPipeline = comicPipeline;
         this.novelPipeline = novelPipeline;
     }
@@ -134,5 +146,50 @@ public class ContentGeneratorService {
     void sendAlertNotification(Storyline storyline, Exception e) {
         log.error("ALERT: Content generation failed for storyline '{}' (ID: {}) after {} attempts. Error: {}",
                 storyline.getTitle(), storyline.getId(), MAX_RETRY_ATTEMPTS, e.getMessage());
+    }
+
+    /**
+     * Async regeneration of a specific novel chapter.
+     * Sets content to REGENERATING, re-generates via NovelPipeline, then resets to PENDING_REVIEW.
+     */
+    @org.springframework.scheduling.annotation.Async
+    public void regenerateChapterAsync(Long chapterId) {
+        NovelChapter chapter = novelChapterMapper.selectById(chapterId);
+        if (chapter == null) {
+            throw new EntityNotFoundException("章节", chapterId);
+        }
+
+        Content content = contentMapper.selectById(chapter.getContentId());
+        if (content == null) {
+            throw new EntityNotFoundException("内容", chapter.getContentId());
+        }
+
+        if (content.getStorylineId() == null) {
+            throw new BusinessException(400, "该内容没有关联的故事线，无法重新生成");
+        }
+
+        Storyline storyline = storylineService.getStorylineById(content.getStorylineId());
+        GenerationConfig config = storylineService.getGenerationConfig(storyline.getId());
+        if (config == null) {
+            config = getDefaultGenerationConfig();
+        }
+
+        transitionContentStatus(content, ContentStatus.REGENERATING);
+
+        try {
+            novelPipeline.regenerateChapter(storyline, config, content, chapter);
+            transitionContentStatus(content, ContentStatus.PENDING_REVIEW);
+            log.info("Chapter {} regenerated successfully, content {} back to PENDING_REVIEW",
+                    chapterId, content.getId());
+        } catch (Exception e) {
+            log.error("Chapter regeneration failed for chapter {}: {}", chapterId, e.getMessage(), e);
+            transitionContentStatus(content, ContentStatus.PENDING_REVIEW);
+        }
+    }
+
+    private void transitionContentStatus(Content content, ContentStatus targetStatus) {
+        content.setStatus(targetStatus);
+        content.setUpdatedAt(LocalDateTime.now());
+        contentMapper.updateById(content);
     }
 }

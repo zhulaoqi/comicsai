@@ -25,13 +25,13 @@
             </svg>
           </div>
 
-          <h2 id="paywall-title" class="paywall-modal__title">付费内容</h2>
-          <p class="paywall-modal__desc">解锁此内容以继续阅读</p>
+          <h2 id="paywall-title" class="paywall-modal__title">付费章节</h2>
+          <p class="paywall-modal__desc">解锁此章节以继续阅读</p>
 
           <!-- Price info -->
           <div class="paywall-modal__info">
             <div class="paywall-modal__info-row">
-              <span class="paywall-modal__info-label">内容价格</span>
+              <span class="paywall-modal__info-label">章节价格</span>
               <span class="paywall-modal__info-value paywall-modal__info-value--price">
                 ¥{{ price.toFixed(2) }}
               </span>
@@ -92,12 +92,14 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { unlockChapterApi } from '../api/content'
 import { unlockContentApi } from '../api/user'
 import { useAuthStore } from '../stores/auth'
 
 const props = defineProps<{
   visible: boolean
-  contentId: number
+  contentId?: number
+  chapterId?: number
   price: number
 }>()
 
@@ -119,21 +121,21 @@ async function handleUnlock() {
   unlocking.value = true
   errorMsg.value = ''
   try {
-    const res = await unlockContentApi(props.contentId)
-    const { success, newBalance } = res.data.data
-    if (success) {
-      // Update auth store balance
-      if (authStore.user) {
-        authStore.setUser({ ...authStore.user, balance: newBalance })
-      }
-      emit('unlock')
-    } else {
-      errorMsg.value = '解锁失败，请重试'
+    if (props.chapterId) {
+      await unlockChapterApi(props.chapterId)
+    } else if (props.contentId) {
+      await unlockContentApi(props.contentId)
     }
+
+    if (authStore.user) {
+      const newBalance = currentBalance.value - props.price
+      authStore.setUser({ ...authStore.user, balance: Math.max(0, newBalance) })
+    }
+    emit('unlock')
   } catch (err: unknown) {
     const axiosErr = err as { response?: { data?: { message?: string }; status?: number } }
     if (axiosErr.response?.status === 402 || axiosErr.response?.status === 400) {
-      errorMsg.value = '余额不足，请先充值'
+      errorMsg.value = axiosErr.response?.data?.message ?? '余额不足，请先充值'
     } else {
       errorMsg.value = axiosErr.response?.data?.message ?? '解锁失败，请稍后重试'
     }

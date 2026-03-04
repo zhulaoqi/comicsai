@@ -8,6 +8,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/HomePage.vue'),
   },
   {
+    path: '/content/:id',
+    name: 'ContentDetail',
+    component: () => import('../views/ContentDetail.vue'),
+  },
+  {
     path: '/comic/:id',
     name: 'ComicReader',
     component: () => import('../views/ComicReader.vue'),

@@ -10,7 +10,8 @@ public enum ContentStatus {
     PENDING_PUBLISH("PENDING_PUBLISH"),
     PUBLISHED("PUBLISHED"),
     REJECTED("REJECTED"),
-    OFFLINE("OFFLINE");
+    OFFLINE("OFFLINE"),
+    REGENERATING("REGENERATING");
 
     @EnumValue
     private final String value;
@@ -24,11 +25,12 @@ public enum ContentStatus {
     }
 
     private static final Map<ContentStatus, Set<ContentStatus>> VALID_TRANSITIONS = Map.of(
-            PENDING_REVIEW, Set.of(PENDING_PUBLISH, REJECTED),
-            PENDING_PUBLISH, Set.of(PUBLISHED),
+            PENDING_REVIEW, Set.of(PENDING_PUBLISH, REJECTED, REGENERATING),
+            PENDING_PUBLISH, Set.of(PUBLISHED, REGENERATING),
             PUBLISHED, Set.of(OFFLINE),
             OFFLINE, Set.of(PUBLISHED),
-            REJECTED, Set.of()
+            REJECTED, Set.of(REGENERATING),
+            REGENERATING, Set.of(PENDING_REVIEW)
     );
 
     public boolean canTransitionTo(ContentStatus target) {

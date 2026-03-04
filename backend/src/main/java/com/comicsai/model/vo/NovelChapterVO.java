@@ -1,37 +1,36 @@
-package com.comicsai.model.entity;
+package com.comicsai.model.vo;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.comicsai.model.entity.NovelChapter;
 
 import java.math.BigDecimal;
 
-@TableName("novel_chapter")
-public class NovelChapter {
+public class NovelChapterVO {
 
-    @TableId(type = IdType.AUTO)
     private Long id;
-
-    @TableField("content_id")
     private Long contentId;
-
-    @TableField("chapter_number")
     private Integer chapterNumber;
-
-    @TableField("chapter_title")
     private String chapterTitle;
-
-    @TableField("chapter_text")
     private String chapterText;
-
-    @TableField("chapter_summary")
     private String chapterSummary;
-
-    @TableField("price")
     private BigDecimal price;
+    private boolean accessible;
+    private BigDecimal chapterPrice;
 
-    public NovelChapter() {}
+    public NovelChapterVO() {}
+
+    public static NovelChapterVO fromChapter(NovelChapter ch, boolean accessible, BigDecimal effectivePrice) {
+        NovelChapterVO vo = new NovelChapterVO();
+        vo.setId(ch.getId());
+        vo.setContentId(ch.getContentId());
+        vo.setChapterNumber(ch.getChapterNumber());
+        vo.setChapterTitle(ch.getChapterTitle());
+        vo.setChapterText(accessible ? ch.getChapterText() : null);
+        vo.setChapterSummary(ch.getChapterSummary());
+        vo.setPrice(ch.getPrice());
+        vo.setAccessible(accessible);
+        vo.setChapterPrice(effectivePrice);
+        return vo;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -53,4 +52,10 @@ public class NovelChapter {
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
+
+    public boolean isAccessible() { return accessible; }
+    public void setAccessible(boolean accessible) { this.accessible = accessible; }
+
+    public BigDecimal getChapterPrice() { return chapterPrice; }
+    public void setChapterPrice(BigDecimal chapterPrice) { this.chapterPrice = chapterPrice; }
 }

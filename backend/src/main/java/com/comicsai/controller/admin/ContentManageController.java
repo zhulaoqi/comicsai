@@ -8,6 +8,7 @@ import com.comicsai.model.vo.ContentDetailVO;
 import com.comicsai.model.vo.ContentManageVO;
 import com.comicsai.model.vo.PageVO;
 import com.comicsai.service.ContentCacheService;
+import com.comicsai.service.ContentGeneratorService;
 import com.comicsai.service.ContentService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -18,10 +19,14 @@ public class ContentManageController {
 
     private final ContentService contentService;
     private final ContentCacheService contentCacheService;
+    private final ContentGeneratorService contentGeneratorService;
 
-    public ContentManageController(ContentService contentService, ContentCacheService contentCacheService) {
+    public ContentManageController(ContentService contentService,
+                                   ContentCacheService contentCacheService,
+                                   ContentGeneratorService contentGeneratorService) {
         this.contentService = contentService;
         this.contentCacheService = contentCacheService;
+        this.contentGeneratorService = contentGeneratorService;
     }
 
     @GetMapping
@@ -82,9 +87,23 @@ public class ContentManageController {
 
     @PutMapping("/{id}/paid")
     public ApiResponse<Void> setContentPaid(@PathVariable Long id, @Valid @RequestBody PaidDTO dto) {
-        contentService.setContentPaid(id, dto.getIsPaid(), dto.getPrice());
+        contentService.setContentPaidExtended(id, dto.getIsPaid(), dto.getPrice(),
+                dto.getFreeChapterCount(), dto.getDefaultChapterPrice());
         contentCacheService.evictAll(id);
         return ApiResponse.success();
+    }
+
+    @PutMapping("/chapters/{chapterId}/price")
+    public ApiResponse<Void> setChapterPrice(@PathVariable Long chapterId,
+                                             @RequestBody ChapterPriceDTO dto) {
+        contentService.setChapterPrice(chapterId, dto.getPrice());
+        return ApiResponse.success();
+    }
+
+    @PostMapping("/chapters/{chapterId}/regenerate")
+    public ApiResponse<Void> regenerateChapter(@PathVariable Long chapterId) {
+        contentGeneratorService.regenerateChapterAsync(chapterId);
+        return ApiResponse.success("重新生成任务已提交，请稍后刷新查看结果", null);
     }
 
     @PostMapping("/batch-paid")

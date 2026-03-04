@@ -39,8 +39,7 @@ public class ContentController {
             @PathVariable Long id,
             HttpServletRequest request) {
         Long userId = (Long) request.getAttribute(JwtInterceptor.USER_ID_ATTR);
-        contentService.checkContentAccess(id, userId);
-        ContentDetailVO detail = contentCacheService.getContentDetail(id);
+        ContentDetailVO detail = contentService.getContentDetailForReader(id, userId);
         return ApiResponse.success(detail);
     }
 
@@ -60,6 +59,16 @@ public class ContentController {
             HttpServletRequest request) {
         Long userId = (Long) request.getAttribute(JwtInterceptor.USER_ID_ATTR);
         contentService.unlockContent(id, userId);
+        return ApiResponse.success();
+    }
+
+    @PostMapping("/chapters/{chapterId}/unlock")
+    @RequireAuth
+    public ApiResponse<Void> unlockChapter(
+            @PathVariable Long chapterId,
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute(JwtInterceptor.USER_ID_ATTR);
+        contentService.unlockChapter(chapterId, userId);
         return ApiResponse.success();
     }
 }

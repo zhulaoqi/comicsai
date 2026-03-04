@@ -57,13 +57,21 @@
 
             <!-- Paid Section -->
             <el-divider content-position="left">付费设置</el-divider>
-            <el-form :model="paidForm" label-width="80px" size="small">
+            <el-form :model="paidForm" label-width="100px" size="small">
               <el-form-item label="付费内容">
                 <el-switch v-model="paidForm.isPaid" />
               </el-form-item>
-              <el-form-item v-if="paidForm.isPaid" label="价格">
+              <el-form-item v-if="paidForm.isPaid" label="作品价格">
                 <el-input-number v-model="paidForm.price" :min="0.01" :precision="2" :step="1" style="width:100%" />
               </el-form-item>
+              <template v-if="paidForm.isPaid && detail.contentType === 'NOVEL'">
+                <el-form-item label="免费章节数">
+                  <el-input-number v-model="paidForm.freeChapterCount" :min="0" :step="1" style="width:100%" />
+                </el-form-item>
+                <el-form-item label="默认章节价格">
+                  <el-input-number v-model="paidForm.defaultChapterPrice" :min="0.01" :precision="2" :step="0.5" style="width:100%" placeholder="每章默认价格" />
+                </el-form-item>
+              </template>
               <el-form-item>
                 <el-button type="warning" size="small" :loading="paidSubmitting" @click="submitPaid">保存付费</el-button>
               </el-form-item>
@@ -72,7 +80,13 @@
             <!-- Review Actions -->
             <el-divider content-position="left">审核操作</el-divider>
             <div class="review-actions">
-              <template v-if="detail.status === 'PENDING_REVIEW'">
+              <template v-if="detail.status === 'REGENERATING'">
+                <div class="regenerating-banner">
+                  <el-icon class="is-loading"><Loading /></el-icon>
+                  <span>章节重新生成中，审核操作暂不可用…</span>
+                </div>
+              </template>
+              <template v-else-if="detail.status === 'PENDING_REVIEW'">
                 <el-button type="success" @click="handleApprove" :loading="reviewSubmitting">通过</el-button>
                 <el-button type="danger" @click="rejectDialogVisible = true">拒绝</el-button>
               </template>
@@ -130,10 +144,41 @@
                 <el-collapse-item
                   v-for="chapter in detail.novelChapters"
                   :key="chapter.id"
-                  :title="`第 ${chapter.chapterNumber} 章：${chapter.chapterTitle}`"
                   :name="chapter.id"
                 >
-                  <div class="chapter-content">{{ chapter.chapterText }}</div>
+                  <template #title>
+                    <div class="chapter-header">
+                      <span>第 {{ chapter.chapterNumber }} 章：{{ chapter.chapterTitle }}</span>
+                      <span class="chapter-actions" @click.stop>
+                        <span v-if="detail.isPaid" class="chapter-price-tag">
+                          <template v-if="chapter.price != null">
+                            ¥{{ chapter.price }}
+                          </template>
+                          <template v-else-if="detail.defaultChapterPrice">
+                            ¥{{ detail.defaultChapterPrice }}
+                            <span class="chapter-price-default">(默认)</span>
+                          </template>
+                          <template v-else>免费</template>
+                          <el-button size="small" link type="primary" @click.stop="openChapterPriceDialog(chapter)">设价</el-button>
+                        </span>
+                        <el-button
+                          size="small"
+                          link
+                          type="warning"
+                          :disabled="isRegenerating"
+                          :loading="regeneratingChapterId === chapter.id"
+                          @click.stop="handleRegenerateChapter(chapter)"
+                        >
+                          {{ regeneratingChapterId === chapter.id ? '生成中' : '重新生成' }}
+                        </el-button>
+                      </span>
+                    </div>
+                  </template>
+                  <div v-if="regeneratingChapterId === chapter.id" class="chapter-regenerating-tip">
+                    <el-icon class="is-loading"><Loading /></el-icon>
+                    <span>正在重新生成此章节内容…</span>
+                  </div>
+                  <div v-else class="chapter-content">{{ chapter.chapterText }}</div>
                 </el-collapse-item>
               </el-collapse>
             </template>
@@ -157,15 +202,32 @@
         <el-button type="danger" :loading="reviewSubmitting" @click="handleReject">确认拒绝</el-button>
       </template>
     </el-dialog>
+
+    <!-- Chapter Price Dialog -->
+    <el-dialog v-model="chapterPriceDialogVisible" title="章节定价" width="420px" :close-on-click-modal="false">
+      <p class="chapter-price-label">{{ chapterPriceTargetLabel }}</p>
+      <el-form :model="chapterPriceForm" label-width="100px" size="small">
+        <el-form-item label="使用默认价格">
+          <el-switch v-model="chapterPriceForm.useDefault" />
+        </el-form-item>
+        <el-form-item v-if="!chapterPriceForm.useDefault" label="自定义价格">
+          <el-input-number v-model="chapterPriceForm.price" :min="0.01" :precision="2" :step="0.5" style="width:100%" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="chapterPriceDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="chapterPriceSubmitting" @click="submitChapterPrice">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
-import { contentApi, type ContentDetail, type ContentStatus } from '../api/content'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowLeft, Loading } from '@element-plus/icons-vue'
+import { contentApi, type ContentDetail, type ContentStatus, type NovelChapter } from '../api/content'
 
 const route = useRoute()
 const router = useRouter()
@@ -177,8 +239,14 @@ const detail = ref<ContentDetail | null>(null)
 const editForm = reactive({ title: '', coverUrl: '' })
 const editSubmitting = ref(false)
 
-const paidForm = reactive({ isPaid: false, price: 9.9 })
+const paidForm = reactive({ isPaid: false, price: 9.9, freeChapterCount: 0, defaultChapterPrice: 1.99 })
 const paidSubmitting = ref(false)
+
+const chapterPriceDialogVisible = ref(false)
+const chapterPriceSubmitting = ref(false)
+const chapterPriceTargetId = ref<number | null>(null)
+const chapterPriceTargetLabel = ref('')
+const chapterPriceForm = reactive({ price: null as number | null, useDefault: true })
 
 const reviewSubmitting = ref(false)
 const publishSubmitting = ref(false)
@@ -186,8 +254,12 @@ const publishSubmitting = ref(false)
 const rejectDialogVisible = ref(false)
 const rejectReason = ref('')
 
+const regeneratingChapterId = ref<number | null>(null)
+let pollingTimer: ReturnType<typeof setInterval> | null = null
+
 // ── Computed ───────────────────────────────────────────────────────────────
 const comicImageUrls = computed(() => detail.value?.comicPages?.map(p => p.imageUrl) ?? [])
+const isRegenerating = computed(() => detail.value?.status === 'REGENERATING')
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function formatDate(d: string) {
@@ -202,6 +274,7 @@ function statusLabel(s: ContentStatus) {
     REJECTED: '已拒绝',
     PUBLISHED: '已发布',
     OFFLINE: '已下架',
+    REGENERATING: '重新生成中',
   }
   return map[s] ?? s
 }
@@ -213,6 +286,7 @@ function statusTagType(s: ContentStatus) {
     REJECTED: 'danger',
     PUBLISHED: 'primary',
     OFFLINE: 'warning',
+    REGENERATING: 'warning',
   }
   return map[s] ?? ''
 }
@@ -229,6 +303,8 @@ async function fetchDetail() {
     editForm.coverUrl = res.data.coverUrl ?? ''
     paidForm.isPaid = res.data.isPaid
     paidForm.price = res.data.price ?? 9.9
+    paidForm.freeChapterCount = res.data.freeChapterCount ?? 0
+    paidForm.defaultChapterPrice = res.data.defaultChapterPrice ?? 1.99
   } catch {
     // handled
   } finally {
@@ -262,6 +338,8 @@ async function submitPaid() {
     await contentApi.setPaid(detail.value.id, {
       isPaid: paidForm.isPaid,
       price: paidForm.isPaid ? paidForm.price : undefined,
+      freeChapterCount: paidForm.isPaid ? paidForm.freeChapterCount : undefined,
+      defaultChapterPrice: paidForm.isPaid ? paidForm.defaultChapterPrice : undefined,
     })
     ElMessage.success('付费设置已保存')
     await fetchDetail()
@@ -335,8 +413,86 @@ async function handleUnpublish() {
   }
 }
 
+// ── Chapter Price ───────────────────────────────────────────────────────────
+function openChapterPriceDialog(chapter: NovelChapter) {
+  chapterPriceTargetId.value = chapter.id
+  chapterPriceTargetLabel.value = `第 ${chapter.chapterNumber} 章：${chapter.chapterTitle}`
+  chapterPriceForm.useDefault = chapter.price == null
+  chapterPriceForm.price = chapter.price
+  chapterPriceDialogVisible.value = true
+}
+
+async function submitChapterPrice() {
+  if (chapterPriceTargetId.value === null) return
+  chapterPriceSubmitting.value = true
+  try {
+    const priceToSet = chapterPriceForm.useDefault ? null : chapterPriceForm.price
+    await contentApi.setChapterPrice(chapterPriceTargetId.value, { price: priceToSet })
+    ElMessage.success('章节价格已更新')
+    chapterPriceDialogVisible.value = false
+    await fetchDetail()
+  } catch {
+    // handled
+  } finally {
+    chapterPriceSubmitting.value = false
+  }
+}
+
+// ── Regenerate Chapter ──────────────────────────────────────────────────────
+async function handleRegenerateChapter(chapter: NovelChapter) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要重新生成「第 ${chapter.chapterNumber} 章：${chapter.chapterTitle}」吗？原内容将被覆盖。`,
+      '重新生成确认',
+      { confirmButtonText: '确认重新生成', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
+  regeneratingChapterId.value = chapter.id
+  try {
+    await contentApi.regenerateChapter(chapter.id)
+    ElMessage.success('重新生成任务已提交，请等待完成')
+    await fetchDetail()
+    startPollingIfRegenerating()
+  } catch {
+    regeneratingChapterId.value = null
+  }
+}
+
+function startPollingIfRegenerating() {
+  stopPolling()
+  if (detail.value?.status === 'REGENERATING') {
+    pollingTimer = setInterval(async () => {
+      try {
+        const res = await contentApi.get(Number(route.params.id))
+        detail.value = res.data
+        if (res.data.status !== 'REGENERATING') {
+          stopPolling()
+          regeneratingChapterId.value = null
+          ElMessage.success('章节重新生成完成')
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 5000)
+  }
+}
+
+function stopPolling() {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
+  }
+}
+
 // ── Init ───────────────────────────────────────────────────────────────────
-onMounted(fetchDetail)
+onMounted(() => {
+  fetchDetail().then(() => startPollingIfRegenerating())
+})
+
+onUnmounted(stopPolling)
 </script>
 
 <style scoped>
@@ -451,5 +607,62 @@ onMounted(fetchDetail)
   max-height: 400px;
   overflow-y: auto;
   padding: 8px 0;
+}
+
+.chapter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 8px;
+}
+
+.chapter-price-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #e6a23c;
+  font-weight: 500;
+}
+
+.chapter-price-default {
+  color: #909399;
+  font-weight: 400;
+}
+
+.chapter-price-label {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.chapter-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.regenerating-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: 6px;
+  color: #e6a23c;
+  font-size: 14px;
+  width: 100%;
+}
+
+.chapter-regenerating-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  color: #e6a23c;
+  font-size: 14px;
+  justify-content: center;
 }
 </style>

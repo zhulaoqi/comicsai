@@ -18,6 +18,8 @@ public class ContentManageVO {
     private String description;
     private Boolean isPaid;
     private BigDecimal price;
+    private Integer freeChapterCount;
+    private BigDecimal defaultChapterPrice;
     private LocalDateTime generatedAt;
     private LocalDateTime publishedAt;
     private LocalDateTime createdAt;
@@ -36,6 +38,8 @@ public class ContentManageVO {
         vo.setDescription(content.getDescription());
         vo.setIsPaid(content.getIsPaid());
         vo.setPrice(content.getPrice());
+        vo.setFreeChapterCount(content.getFreeChapterCount());
+        vo.setDefaultChapterPrice(content.getDefaultChapterPrice());
         vo.setGeneratedAt(content.getGeneratedAt());
         vo.setPublishedAt(content.getPublishedAt());
         vo.setCreatedAt(content.getCreatedAt());
@@ -69,6 +73,12 @@ public class ContentManageVO {
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
+
+    public Integer getFreeChapterCount() { return freeChapterCount; }
+    public void setFreeChapterCount(Integer freeChapterCount) { this.freeChapterCount = freeChapterCount; }
+
+    public BigDecimal getDefaultChapterPrice() { return defaultChapterPrice; }
+    public void setDefaultChapterPrice(BigDecimal defaultChapterPrice) { this.defaultChapterPrice = defaultChapterPrice; }
 
     public LocalDateTime getGeneratedAt() { return generatedAt; }
     public void setGeneratedAt(LocalDateTime generatedAt) { this.generatedAt = generatedAt; }

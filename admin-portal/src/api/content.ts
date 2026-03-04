@@ -1,6 +1,6 @@
 import request, { type ApiResponse } from './request'
 
-export type ContentStatus = 'PENDING_REVIEW' | 'PENDING_PUBLISH' | 'REJECTED' | 'PUBLISHED' | 'OFFLINE'
+export type ContentStatus = 'PENDING_REVIEW' | 'PENDING_PUBLISH' | 'REJECTED' | 'PUBLISHED' | 'OFFLINE' | 'REGENERATING'
 export type ContentType = 'COMIC' | 'NOVEL'
 
 export interface ContentItem {
@@ -10,6 +10,8 @@ export interface ContentItem {
   status: ContentStatus
   isPaid: boolean
   price: number | null
+  freeChapterCount: number
+  defaultChapterPrice: number | null
   coverUrl: string | null
   storylineId: number | null
   createdAt: string
@@ -27,11 +29,14 @@ export interface NovelChapter {
   chapterNumber: number
   chapterTitle: string
   chapterText: string
+  price: number | null
 }
 
 export interface ContentDetail extends ContentItem {
   description: string | null
   publishedAt: string | null
+  freeChapterCount: number
+  defaultChapterPrice: number | null
   comicPages?: ComicPage[]
   novelChapters?: NovelChapter[]
 }
@@ -60,6 +65,12 @@ export interface ReviewBody {
 export interface PaidBody {
   isPaid: boolean
   price?: number
+  freeChapterCount?: number
+  defaultChapterPrice?: number
+}
+
+export interface ChapterPriceBody {
+  price: number | null
 }
 
 export interface BatchReviewBody {
@@ -108,5 +119,13 @@ export const contentApi = {
 
   batchPaid(body: BatchPaidBody): Promise<ApiResponse<void>> {
     return request.post('/contents/batch-paid', body).then(r => r.data)
+  },
+
+  setChapterPrice(chapterId: number, body: ChapterPriceBody): Promise<ApiResponse<void>> {
+    return request.put(`/contents/chapters/${chapterId}/price`, body).then(r => r.data)
+  },
+
+  regenerateChapter(chapterId: number): Promise<ApiResponse<void>> {
+    return request.post(`/contents/chapters/${chapterId}/regenerate`).then(r => r.data)
   },
 }

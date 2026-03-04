@@ -33,8 +33,7 @@ import type { ContentItem } from '../api/content'
 const props = defineProps<{ content: ContentItem }>()
 
 const cardLink = computed(() => {
-  const route = props.content.contentType === 'COMIC' ? 'ComicReader' : 'NovelReader'
-  return { name: route, params: { id: props.content.id } }
+  return { name: 'ContentDetail', params: { id: props.content.id } }
 })
 
 // Build srcset for responsive cover images

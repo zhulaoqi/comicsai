@@ -1,9 +1,11 @@
 package com.comicsai.ai.pipeline;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.comicsai.ai.agent.CoverArtAgent;
 import com.comicsai.ai.agent.NovelWriterAgent;
 import com.comicsai.ai.agent.SummaryAgent;
 import com.comicsai.ai.message.Msg;
+import com.comicsai.mapper.ContentMapper;
 import com.comicsai.mapper.NovelChapterMapper;
 import com.comicsai.mapper.TokenUsageMapper;
 import com.comicsai.model.dto.ContentCreateDTO;
@@ -35,6 +37,7 @@ public class NovelPipeline implements GenerationPipeline {
     private final SummaryAgent summaryAgent;
     private final ContentService contentService;
     private final FileStorageService fileStorageService;
+    private final ContentMapper contentMapper;
     private final NovelChapterMapper novelChapterMapper;
     private final TokenUsageMapper tokenUsageMapper;
 
@@ -43,6 +46,7 @@ public class NovelPipeline implements GenerationPipeline {
                          SummaryAgent summaryAgent,
                          ContentService contentService,
                          FileStorageService fileStorageService,
+                         ContentMapper contentMapper,
                          NovelChapterMapper novelChapterMapper,
                          TokenUsageMapper tokenUsageMapper) {
         this.novelWriterAgent = novelWriterAgent;
@@ -50,6 +54,7 @@ public class NovelPipeline implements GenerationPipeline {
         this.summaryAgent = summaryAgent;
         this.contentService = contentService;
         this.fileStorageService = fileStorageService;
+        this.contentMapper = contentMapper;
         this.novelChapterMapper = novelChapterMapper;
         this.tokenUsageMapper = tokenUsageMapper;
     }
@@ -77,57 +82,32 @@ public class NovelPipeline implements GenerationPipeline {
         String chapterTitle = writerResult.getMeta("chapterTitle");
         String chapterText = writerResult.getMeta("chapterText");
 
-        // Step 2: Generate cover image only for the first chapter (novels don't need per-chapter covers)
-        String coverUrl;
-        boolean shouldGenerateCover = chapterNum == 1
-                && config.getImageProvider() != null
-                && !config.getImageProvider().isBlank();
+        // Step 2: Reuse existing Content or create a new one
+        Content content = findExistingContent(storyline.getId());
 
-        if (shouldGenerateCover) {
-            try {
-                String coverPrompt = "小说封面：" + storyline.getTitle() + " " + chapterTitle +
-                        " 风格：" + (config.getImageStyle() != null ? config.getImageStyle() : "写实插画风格");
+        if (content == null) {
+            // First chapter: create Content + generate cover
+            String coverUrl = generateCover(storyline, config, chapterTitle);
 
-                Msg coverInput = Msg.builder()
-                        .name("pipeline")
-                        .role(Msg.ROLE_USER)
-                        .content(coverPrompt)
-                        .meta("imageModelName", config.getImageProvider())
-                        .meta("imageModel", config.getImageModel())
-                        .meta("imageSize", config.getImageSize())
-                        .meta("imageStyle", config.getImageStyle())
-                        .build();
+            ContentCreateDTO dto = new ContentCreateDTO();
+            dto.setStorylineId(storyline.getId());
+            dto.setTitle(storyline.getTitle());
+            dto.setContentType(ContentType.NOVEL);
+            dto.setCoverUrl(coverUrl);
+            dto.setDescription(chapterText.length() > 200 ? chapterText.substring(0, 200) + "..." : chapterText);
+            content = contentService.createContent(dto);
 
-                Msg coverResult = coverArtAgent.call(coverInput);
-                coverUrl = fileStorageService.storeCoverImage(
-                        coverResult.getImageData(),
-                        "novel_cover_" + chapterNum + "." + getImageExtension(coverResult.getImageFormat()));
-
-                recordTokenUsage(null, storyline.getId(),
-                        config.getImageProvider(), coverResult.getModel(),
-                        coverResult.getInputTokens(), 0);
-            } catch (Exception e) {
-                log.warn("Cover generation failed for storyline {}, using default: {}", storyline.getId(), e.getMessage());
-                coverUrl = "/files/covers/default_novel_cover.png";
-            }
+            log.info("Created new Content {} for storyline {}", content.getId(), storyline.getId());
         } else {
-            coverUrl = "/files/covers/default_novel_cover.png";
+            log.info("Appending chapter {} to existing Content {} for storyline {}",
+                    chapterNum, content.getId(), storyline.getId());
         }
-
-        // Step 3: Create content record
-        ContentCreateDTO dto = new ContentCreateDTO();
-        dto.setStorylineId(storyline.getId());
-        dto.setTitle(storyline.getTitle() + " - " + chapterTitle);
-        dto.setContentType(ContentType.NOVEL);
-        dto.setCoverUrl(coverUrl);
-        dto.setDescription(chapterText.length() > 200 ? chapterText.substring(0, 200) + "..." : chapterText);
-        Content content = contentService.createContent(dto);
 
         recordTokenUsage(content.getId(), storyline.getId(),
                 config.getTextProvider(), writerResult.getModel(),
                 writerResult.getInputTokens(), writerResult.getOutputTokens());
 
-        // Step 4: Save novel chapter
+        // Step 3: Save novel chapter
         NovelChapter chapter = new NovelChapter();
         chapter.setContentId(content.getId());
         chapter.setChapterNumber(chapterNum);
@@ -135,15 +115,62 @@ public class NovelPipeline implements GenerationPipeline {
         chapter.setChapterText(chapterText);
         novelChapterMapper.insert(chapter);
 
-        // Step 5: Generate summary
+        // Step 4: Generate summary for continuity
         String summary = generateAndStoreSummary(storyline, config, chapterText);
         if (summary != null) {
             chapter.setChapterSummary(summary);
             novelChapterMapper.updateById(chapter);
         }
 
-        log.info("NovelPipeline completed: content={} for storyline={}", content.getId(), storyline.getId());
+        log.info("NovelPipeline completed: content={}, chapter={} for storyline={}",
+                content.getId(), chapterNum, storyline.getId());
         return content;
+    }
+
+    /**
+     * Find the existing NOVEL Content for this storyline (all chapters share one Content).
+     */
+    private Content findExistingContent(Long storylineId) {
+        LambdaQueryWrapper<Content> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Content::getStorylineId, storylineId)
+               .eq(Content::getContentType, ContentType.NOVEL)
+               .orderByDesc(Content::getCreatedAt)
+               .last("LIMIT 1");
+        return contentMapper.selectOne(wrapper);
+    }
+
+    private String generateCover(Storyline storyline, GenerationConfig config, String chapterTitle) {
+        if (config.getImageProvider() == null || config.getImageProvider().isBlank()) {
+            return "/files/covers/default_novel_cover.png";
+        }
+        try {
+            String coverPrompt = "小说封面：" + storyline.getTitle() + " " + chapterTitle +
+                    " 风格：" + (config.getImageStyle() != null ? config.getImageStyle() : "写实插画风格");
+
+            Msg coverInput = Msg.builder()
+                    .name("pipeline")
+                    .role(Msg.ROLE_USER)
+                    .content(coverPrompt)
+                    .meta("imageModelName", config.getImageProvider())
+                    .meta("imageModel", config.getImageModel())
+                    .meta("imageSize", config.getImageSize())
+                    .meta("imageStyle", config.getImageStyle())
+                    .build();
+
+            Msg coverResult = coverArtAgent.call(coverInput);
+            String coverUrl = fileStorageService.storeCoverImage(
+                    coverResult.getImageData(),
+                    "novel_cover_" + storyline.getId() + "." + getImageExtension(coverResult.getImageFormat()));
+
+            recordTokenUsage(null, storyline.getId(),
+                    config.getImageProvider(), coverResult.getModel(),
+                    coverResult.getInputTokens(), 0);
+
+            return coverUrl;
+        } catch (Exception e) {
+            log.warn("Cover generation failed for storyline {}, using default: {}", storyline.getId(), e.getMessage());
+            return "/files/covers/default_novel_cover.png";
+        }
     }
 
     private String generateAndStoreSummary(Storyline storyline, GenerationConfig config, String contentText) {
@@ -171,6 +198,76 @@ public class NovelPipeline implements GenerationPipeline {
             log.warn("Failed to generate summary for storyline {}: {}", storyline.getId(), e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Regenerate a specific chapter: call WriterAgent with the same chapter number,
+     * overwrite old content, and re-generate summary.
+     */
+    @Transactional
+    public NovelChapter regenerateChapter(Storyline storyline, GenerationConfig config,
+                                          Content content, NovelChapter oldChapter) throws IOException {
+        int chapterNum = oldChapter.getChapterNumber();
+
+        String systemPrompt = buildRegeneratePrompt(storyline, content.getId(), chapterNum);
+
+        Msg writerInput = Msg.builder()
+                .name("pipeline")
+                .role(Msg.ROLE_USER)
+                .content("重新创作第" + chapterNum + "章，请生成与之前不同的全新内容")
+                .meta("storylineContext", systemPrompt)
+                .meta("chapterNum", chapterNum)
+                .meta("chatModelName", config.getTextProvider())
+                .meta("textModel", config.getTextModel())
+                .meta("temperature", config.getTemperature())
+                .meta("maxTokens", config.getMaxTokens())
+                .build();
+
+        Msg writerResult = novelWriterAgent.call(writerInput);
+        String chapterTitle = writerResult.getMeta("chapterTitle");
+        String chapterText = writerResult.getMeta("chapterText");
+
+        oldChapter.setChapterTitle(chapterTitle);
+        oldChapter.setChapterText(chapterText);
+        novelChapterMapper.updateById(oldChapter);
+
+        recordTokenUsage(content.getId(), storyline.getId(),
+                config.getTextProvider(), writerResult.getModel(),
+                writerResult.getInputTokens(), writerResult.getOutputTokens());
+
+        String summary = generateAndStoreSummary(storyline, config, chapterText);
+        if (summary != null) {
+            oldChapter.setChapterSummary(summary);
+            novelChapterMapper.updateById(oldChapter);
+        }
+
+        log.info("Chapter {} regenerated for content={}, storyline={}",
+                chapterNum, content.getId(), storyline.getId());
+        return oldChapter;
+    }
+
+    /**
+     * Build prompt for regeneration — uses the previous chapter's summary
+     * instead of storyline.latestChapterSummary for positional accuracy.
+     */
+    private String buildRegeneratePrompt(Storyline storyline, Long contentId, int chapterNum) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("你是一位专业的创意写作AI助手。请基于以下故事线设定进行创作。\n\n");
+        sb.append("【角色设定】\n").append(storyline.getCharacterSettings()).append("\n\n");
+        sb.append("【世界观】\n").append(storyline.getWorldview()).append("\n\n");
+        sb.append("【剧情大纲】\n").append(storyline.getPlotOutline()).append("\n\n");
+
+        if (chapterNum > 1) {
+            LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(NovelChapter::getContentId, contentId)
+                   .eq(NovelChapter::getChapterNumber, chapterNum - 1);
+            NovelChapter prevChapter = novelChapterMapper.selectOne(wrapper);
+            if (prevChapter != null && prevChapter.getChapterSummary() != null) {
+                sb.append("【前章摘要】\n").append(prevChapter.getChapterSummary()).append("\n\n");
+                sb.append("请基于前章摘要继续创作，保持剧情连贯性。\n");
+            }
+        }
+        return sb.toString();
     }
 
     String buildSystemPrompt(Storyline storyline) {

@@ -15,6 +15,7 @@
             <el-option label="已拒绝" value="REJECTED" />
             <el-option label="已发布" value="PUBLISHED" />
             <el-option label="已下架" value="OFFLINE" />
+            <el-option label="重新生成中" value="REGENERATING" />
           </el-select>
         </el-form-item>
         <el-form-item label="类型">
@@ -71,8 +72,15 @@
           <span v-else class="text-muted">免费</span>
         </template>
       </el-table-column>
-      <el-table-column prop="price" label="价格" width="80" align="center">
-        <template #default="{ row }">{{ row.isPaid && row.price != null ? row.price : '-' }}</template>
+      <el-table-column label="价格" width="120" align="center">
+        <template #default="{ row }">
+          <template v-if="row.isPaid">
+            <span v-if="row.contentType === 'NOVEL' && row.defaultChapterPrice">每章 ¥{{ row.defaultChapterPrice }}</span>
+            <span v-else-if="row.price != null">¥{{ row.price }}</span>
+            <span v-else>付费</span>
+          </template>
+          <span v-else>-</span>
+        </template>
       </el-table-column>
       <el-table-column prop="storylineId" label="故事线ID" width="100" align="center">
         <template #default="{ row }">{{ row.storylineId || '-' }}</template>
@@ -128,14 +136,22 @@
     </el-dialog>
 
     <!-- Paid Dialog (single) -->
-    <el-dialog v-model="paidDialogVisible" title="付费设置" width="400px" :close-on-click-modal="false">
-      <el-form :model="paidForm" label-width="80px">
+    <el-dialog v-model="paidDialogVisible" title="付费设置" width="440px" :close-on-click-modal="false">
+      <el-form :model="paidForm" label-width="100px">
         <el-form-item label="付费内容">
           <el-switch v-model="paidForm.isPaid" />
         </el-form-item>
-        <el-form-item v-if="paidForm.isPaid" label="价格">
+        <el-form-item v-if="paidForm.isPaid" label="作品价格">
           <el-input-number v-model="paidForm.price" :min="0.01" :precision="2" :step="1" style="width:100%" />
         </el-form-item>
+        <template v-if="paidForm.isPaid && paidTargetType === 'NOVEL'">
+          <el-form-item label="免费章节数">
+            <el-input-number v-model="paidForm.freeChapterCount" :min="0" :step="1" style="width:100%" />
+          </el-form-item>
+          <el-form-item label="默认章节价格">
+            <el-input-number v-model="paidForm.defaultChapterPrice" :min="0.01" :precision="2" :step="0.5" style="width:100%" />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="paidDialogVisible = false">取消</el-button>
@@ -201,7 +217,8 @@ const editForm = reactive({ title: '', coverUrl: '' })
 const paidDialogVisible = ref(false)
 const paidSubmitting = ref(false)
 const paidTargetId = ref<number | null>(null)
-const paidForm = reactive({ isPaid: false, price: 9.9 })
+const paidTargetType = ref<ContentType>('COMIC')
+const paidForm = reactive({ isPaid: false, price: 9.9, freeChapterCount: 0, defaultChapterPrice: 1.99 })
 
 // Batch paid dialog
 const batchPaidDialogVisible = ref(false)
@@ -221,6 +238,7 @@ function statusLabel(s: ContentStatus) {
     REJECTED: '已拒绝',
     PUBLISHED: '已发布',
     OFFLINE: '已下架',
+    REGENERATING: '重新生成中',
   }
   return map[s] ?? s
 }
@@ -232,6 +250,7 @@ function statusTagType(s: ContentStatus) {
     REJECTED: 'danger',
     PUBLISHED: 'primary',
     OFFLINE: 'warning',
+    REGENERATING: 'warning',
   }
   return map[s] ?? ''
 }
@@ -327,8 +346,11 @@ async function handleUnpublish(row: ContentItem) {
 // ── Paid (single) ──────────────────────────────────────────────────────────
 function openPaidDialog(row: ContentItem) {
   paidTargetId.value = row.id
+  paidTargetType.value = row.contentType
   paidForm.isPaid = row.isPaid
   paidForm.price = row.price ?? 9.9
+  paidForm.freeChapterCount = 0
+  paidForm.defaultChapterPrice = 1.99
   paidDialogVisible.value = true
 }
 
@@ -339,6 +361,8 @@ async function submitPaid() {
     await contentApi.setPaid(paidTargetId.value, {
       isPaid: paidForm.isPaid,
       price: paidForm.isPaid ? paidForm.price : undefined,
+      freeChapterCount: paidForm.isPaid && paidTargetType.value === 'NOVEL' ? paidForm.freeChapterCount : undefined,
+      defaultChapterPrice: paidForm.isPaid && paidTargetType.value === 'NOVEL' ? paidForm.defaultChapterPrice : undefined,
     })
     ElMessage.success('付费设置已保存')
     paidDialogVisible.value = false

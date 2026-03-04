@@ -26,6 +26,9 @@ public class User {
     @TableField("balance")
     private BigDecimal balance;
 
+    @TableField("vip_expire_at")
+    private LocalDateTime vipExpireAt;
+
     @TableField("created_at")
     private LocalDateTime createdAt;
 
@@ -48,6 +51,9 @@ public class User {
 
     public BigDecimal getBalance() { return balance; }
     public void setBalance(BigDecimal balance) { this.balance = balance; }
+
+    public LocalDateTime getVipExpireAt() { return vipExpireAt; }
+    public void setVipExpireAt(LocalDateTime vipExpireAt) { this.vipExpireAt = vipExpireAt; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

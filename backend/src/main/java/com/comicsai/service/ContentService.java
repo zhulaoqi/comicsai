@@ -8,6 +8,7 @@ import com.comicsai.common.exception.BusinessException;
 import com.comicsai.common.exception.EntityNotFoundException;
 import com.comicsai.common.exception.IllegalStateTransitionException;
 import com.comicsai.common.exception.InsufficientBalanceException;
+import com.comicsai.mapper.ChapterUnlockMapper;
 import com.comicsai.mapper.ComicPageMapper;
 import com.comicsai.mapper.ContentMapper;
 import com.comicsai.mapper.ContentUnlockMapper;
@@ -16,6 +17,7 @@ import com.comicsai.mapper.UserMapper;
 import com.comicsai.model.dto.ContentCreateDTO;
 import com.comicsai.model.dto.ContentQueryDTO;
 import com.comicsai.model.dto.ContentUpdateDTO;
+import com.comicsai.model.entity.ChapterUnlock;
 import com.comicsai.model.entity.ComicPage;
 import com.comicsai.model.entity.Content;
 import com.comicsai.model.entity.ContentUnlock;
@@ -26,6 +28,7 @@ import com.comicsai.model.enums.ContentType;
 import com.comicsai.model.vo.ContentDetailVO;
 import com.comicsai.model.vo.ContentManageVO;
 import com.comicsai.model.vo.ContentVO;
+import com.comicsai.model.vo.NovelChapterVO;
 import com.comicsai.model.vo.PageVO;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class ContentService {
@@ -42,17 +47,20 @@ public class ContentService {
     private final ComicPageMapper comicPageMapper;
     private final NovelChapterMapper novelChapterMapper;
     private final ContentUnlockMapper contentUnlockMapper;
+    private final ChapterUnlockMapper chapterUnlockMapper;
     private final UserMapper userMapper;
 
     public ContentService(ContentMapper contentMapper,
                           ComicPageMapper comicPageMapper,
                           NovelChapterMapper novelChapterMapper,
                           ContentUnlockMapper contentUnlockMapper,
+                          ChapterUnlockMapper chapterUnlockMapper,
                           UserMapper userMapper) {
         this.contentMapper = contentMapper;
         this.comicPageMapper = comicPageMapper;
         this.novelChapterMapper = novelChapterMapper;
         this.contentUnlockMapper = contentUnlockMapper;
+        this.chapterUnlockMapper = chapterUnlockMapper;
         this.userMapper = userMapper;
     }
 
@@ -363,9 +371,173 @@ public class ContentService {
     }
 
     @Transactional
+    public void setContentPaidExtended(Long contentId, Boolean isPaid, BigDecimal price,
+                                       Integer freeChapterCount, BigDecimal defaultChapterPrice) {
+        Content content = getContentById(contentId);
+        content.setIsPaid(isPaid);
+        if (Boolean.TRUE.equals(isPaid)) {
+            content.setPrice(price);
+            content.setFreeChapterCount(freeChapterCount != null ? freeChapterCount : 0);
+            content.setDefaultChapterPrice(defaultChapterPrice);
+        } else {
+            content.setPrice(null);
+            content.setFreeChapterCount(0);
+            content.setDefaultChapterPrice(null);
+        }
+        content.setUpdatedAt(LocalDateTime.now());
+        contentMapper.updateById(content);
+    }
+
+    @Transactional
+    public void setChapterPrice(Long chapterId, BigDecimal price) {
+        NovelChapter chapter = novelChapterMapper.selectById(chapterId);
+        if (chapter == null) {
+            throw new EntityNotFoundException("章节", chapterId);
+        }
+        chapter.setPrice(price);
+        novelChapterMapper.updateById(chapter);
+    }
+
+    @Transactional
     public void batchSetContentPaid(List<Long> contentIds, Boolean isPaid, BigDecimal price) {
         for (Long contentId : contentIds) {
             setContentPaid(contentId, isPaid, price);
         }
+    }
+
+    // ==================== Chapter-Level Access Control ====================
+
+    public ContentDetailVO getContentDetailForReader(Long contentId, Long userId) {
+        Content content = getContentById(contentId);
+
+        List<ComicPage> comicPages = Collections.emptyList();
+        if (content.getContentType() == ContentType.COMIC) {
+            LambdaQueryWrapper<ComicPage> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(ComicPage::getContentId, contentId);
+            wrapper.orderByAsc(ComicPage::getPageNumber);
+            comicPages = comicPageMapper.selectList(wrapper);
+        }
+
+        ContentDetailVO vo = ContentDetailVO.fromContent(content, comicPages, Collections.emptyList());
+
+        if (content.getContentType() == ContentType.NOVEL) {
+            LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(NovelChapter::getContentId, contentId);
+            wrapper.orderByAsc(NovelChapter::getChapterNumber);
+            List<NovelChapter> chapters = novelChapterMapper.selectList(wrapper);
+
+            boolean isVip = isUserVip(userId);
+            Set<Long> unlockedChapterIds = getUnlockedChapterIds(userId, chapters);
+
+            List<NovelChapterVO> chapterVOs = chapters.stream().map(ch -> {
+                boolean accessible = isChapterAccessible(content, ch, userId, isVip, unlockedChapterIds);
+                BigDecimal effectivePrice = getEffectiveChapterPrice(content, ch);
+                return NovelChapterVO.fromChapter(ch, accessible, effectivePrice);
+            }).toList();
+
+            vo.setNovelChapterVOs(chapterVOs);
+        }
+
+        return vo;
+    }
+
+    private boolean isChapterAccessible(Content content, NovelChapter chapter,
+                                        Long userId, boolean isVip, Set<Long> unlockedChapterIds) {
+        if (!Boolean.TRUE.equals(content.getIsPaid())) {
+            return true;
+        }
+        int freeCount = content.getFreeChapterCount() != null ? content.getFreeChapterCount() : 0;
+        if (chapter.getChapterNumber() != null && chapter.getChapterNumber() <= freeCount) {
+            return true;
+        }
+        if (isVip) {
+            return true;
+        }
+        return unlockedChapterIds.contains(chapter.getId());
+    }
+
+    private BigDecimal getEffectiveChapterPrice(Content content, NovelChapter chapter) {
+        if (chapter.getPrice() != null) {
+            return chapter.getPrice();
+        }
+        return content.getDefaultChapterPrice();
+    }
+
+    private boolean isUserVip(Long userId) {
+        if (userId == null) return false;
+        User user = userMapper.selectById(userId);
+        if (user == null) return false;
+        return user.getVipExpireAt() != null && user.getVipExpireAt().isAfter(LocalDateTime.now());
+    }
+
+    private Set<Long> getUnlockedChapterIds(Long userId, List<NovelChapter> chapters) {
+        if (userId == null || chapters.isEmpty()) return Collections.emptySet();
+        List<Long> chapterIds = chapters.stream().map(NovelChapter::getId).toList();
+        LambdaQueryWrapper<ChapterUnlock> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ChapterUnlock::getUserId, userId);
+        wrapper.in(ChapterUnlock::getChapterId, chapterIds);
+        List<ChapterUnlock> unlocks = chapterUnlockMapper.selectList(wrapper);
+        Set<Long> set = new HashSet<>();
+        for (ChapterUnlock u : unlocks) {
+            set.add(u.getChapterId());
+        }
+        return set;
+    }
+
+    @Transactional
+    public void unlockChapter(Long chapterId, Long userId) {
+        NovelChapter chapter = novelChapterMapper.selectById(chapterId);
+        if (chapter == null) {
+            throw new EntityNotFoundException("章节", chapterId);
+        }
+
+        Content content = getContentById(chapter.getContentId());
+
+        if (!Boolean.TRUE.equals(content.getIsPaid())) {
+            throw new BusinessException(400, "该内容为免费内容，无需解锁");
+        }
+
+        int freeCount = content.getFreeChapterCount() != null ? content.getFreeChapterCount() : 0;
+        if (chapter.getChapterNumber() != null && chapter.getChapterNumber() <= freeCount) {
+            throw new BusinessException(400, "该章节为免费章节，无需解锁");
+        }
+
+        if (isUserVip(userId)) {
+            throw new BusinessException(400, "VIP用户可免费阅读，无需解锁");
+        }
+
+        LambdaQueryWrapper<ChapterUnlock> existWrapper = new LambdaQueryWrapper<>();
+        existWrapper.eq(ChapterUnlock::getUserId, userId);
+        existWrapper.eq(ChapterUnlock::getChapterId, chapterId);
+        if (chapterUnlockMapper.selectCount(existWrapper) > 0) {
+            throw new BusinessException(400, "该章节已解锁");
+        }
+
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new EntityNotFoundException("用户", userId);
+        }
+
+        BigDecimal price = getEffectiveChapterPrice(content, chapter);
+        if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) {
+            price = BigDecimal.ZERO;
+        }
+
+        if (price.compareTo(BigDecimal.ZERO) > 0 && user.getBalance().compareTo(price) < 0) {
+            throw new InsufficientBalanceException("余额不足，请先充值");
+        }
+
+        if (price.compareTo(BigDecimal.ZERO) > 0) {
+            user.setBalance(user.getBalance().subtract(price));
+            user.setUpdatedAt(LocalDateTime.now());
+            userMapper.updateById(user);
+        }
+
+        ChapterUnlock unlock = new ChapterUnlock();
+        unlock.setUserId(userId);
+        unlock.setChapterId(chapterId);
+        unlock.setPricePaid(price);
+        unlock.setUnlockedAt(LocalDateTime.now());
+        chapterUnlockMapper.insert(unlock);
     }
 }
