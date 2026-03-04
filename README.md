@@ -298,7 +298,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     HOME[书架首页<br/>封面网格] --> DETAIL[书籍详情页<br/>封面+简介+章节目录]
-    DETAIL -->|点击章节或开始阅读| READER[小说阅读器<br/>全屏+浮层目录]
+    DETAIL -->|点击章节或开始阅读| READER[沉浸式阅读器<br/>点击中间切换工具栏]
     READER --> CHECK{章节访问控制}
     CHECK -->|免费内容| READ[显示正文]
     CHECK -->|免费章节数内| READ
@@ -310,6 +310,8 @@ flowchart TD
     UNLOCK --> READ
     READER --> NAV[上一章 / 目录 / 下一章]
     NAV --> READER
+    READER -->|底栏设置按钮| SETTINGS[阅读设置面板<br/>主题·字号·行距·字体·亮度·自动滚动]
+    SETTINGS -->|设置自动保存| READER
 ```
 
 ## 快速开始
