@@ -35,12 +35,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
+        registry.addMapping(accessUrlPrefix + "/**")
+                .allowedOriginPatterns(origins)
+                .allowedMethods("GET", "OPTIONS")
+                .allowedHeaders("*")
+                .maxAge(86400);
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        String absolutePath = java.nio.file.Paths.get(fileStorageBasePath)
+                .toAbsolutePath().normalize().toString();
         registry.addResourceHandler(accessUrlPrefix + "/**")
-                .addResourceLocations("file:" + fileStorageBasePath + "/");
+                .addResourceLocations("file:" + absolutePath + "/");
     }
 
     @Override
