@@ -11,10 +11,10 @@
         <el-form-item label="状态">
           <el-select v-model="filters.status" placeholder="全部" clearable style="width:140px" @change="fetchList">
             <el-option label="待审核" value="PENDING_REVIEW" />
-            <el-option label="已通过" value="APPROVED" />
+            <el-option label="待发布" value="PENDING_PUBLISH" />
             <el-option label="已拒绝" value="REJECTED" />
             <el-option label="已发布" value="PUBLISHED" />
-            <el-option label="已下架" value="UNPUBLISHED" />
+            <el-option label="已下架" value="OFFLINE" />
           </el-select>
         </el-form-item>
         <el-form-item label="类型">
@@ -74,8 +74,8 @@
       <el-table-column prop="price" label="价格" width="80" align="center">
         <template #default="{ row }">{{ row.isPaid && row.price != null ? row.price : '-' }}</template>
       </el-table-column>
-      <el-table-column prop="storylineTitle" label="故事线" width="140" show-overflow-tooltip>
-        <template #default="{ row }">{{ row.storylineTitle || '-' }}</template>
+      <el-table-column prop="storylineId" label="故事线ID" width="100" align="center">
+        <template #default="{ row }">{{ row.storylineId || '-' }}</template>
       </el-table-column>
       <el-table-column prop="createdAt" label="创建时间" width="160">
         <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
@@ -85,7 +85,7 @@
           <el-button size="small" @click="goReview(row.id)">查看/审核</el-button>
           <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
           <el-button
-            v-if="row.status === 'APPROVED'"
+            v-if="row.status === 'PENDING_PUBLISH'"
             size="small" type="success"
             @click="handlePublish(row)"
           >上架</el-button>
@@ -118,7 +118,7 @@
           <el-input v-model="editForm.title" maxlength="200" show-word-limit />
         </el-form-item>
         <el-form-item label="封面图URL">
-          <el-input v-model="editForm.coverImageUrl" placeholder="https://..." />
+          <el-input v-model="editForm.coverUrl" placeholder="https://..." />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -195,7 +195,7 @@ const pagination = reactive({ page: 1, size: 20, total: 0 })
 const editDialogVisible = ref(false)
 const editSubmitting = ref(false)
 const editingId = ref<number | null>(null)
-const editForm = reactive({ title: '', coverImageUrl: '' })
+const editForm = reactive({ title: '', coverUrl: '' })
 
 // Paid dialog (single)
 const paidDialogVisible = ref(false)
@@ -217,10 +217,10 @@ function formatDate(d: string) {
 function statusLabel(s: ContentStatus) {
   const map: Record<ContentStatus, string> = {
     PENDING_REVIEW: '待审核',
-    APPROVED: '已通过',
+    PENDING_PUBLISH: '待发布',
     REJECTED: '已拒绝',
     PUBLISHED: '已发布',
-    UNPUBLISHED: '已下架',
+    OFFLINE: '已下架',
   }
   return map[s] ?? s
 }
@@ -228,10 +228,10 @@ function statusLabel(s: ContentStatus) {
 function statusTagType(s: ContentStatus) {
   const map: Record<ContentStatus, string> = {
     PENDING_REVIEW: 'info',
-    APPROVED: 'success',
+    PENDING_PUBLISH: 'success',
     REJECTED: 'danger',
     PUBLISHED: 'primary',
-    UNPUBLISHED: 'warning',
+    OFFLINE: 'warning',
   }
   return map[s] ?? ''
 }
@@ -279,7 +279,7 @@ function goReview(id: number) {
 function openEditDialog(row: ContentItem) {
   editingId.value = row.id
   editForm.title = row.title
-  editForm.coverImageUrl = row.coverImageUrl ?? ''
+  editForm.coverUrl = row.coverUrl ?? ''
   editDialogVisible.value = true
 }
 
@@ -289,7 +289,7 @@ async function submitEdit() {
   try {
     await contentApi.update(editingId.value, {
       title: editForm.title,
-      coverImageUrl: editForm.coverImageUrl || undefined,
+      coverUrl: editForm.coverUrl || undefined,
     })
     ElMessage.success('内容已更新')
     editDialogVisible.value = false
@@ -354,7 +354,7 @@ async function submitPaid() {
 async function batchApprove() {
   await ElMessageBox.confirm(`确定批量通过 ${selectedIds.value.length} 项内容吗？`, '批量审核', { type: 'info' }).catch(() => { throw new Error('cancel') })
   try {
-    await contentApi.batchReview({ ids: selectedIds.value, action: 'APPROVE' })
+    await contentApi.batchReview({ contentIds: selectedIds.value, action: 'approve' })
     ElMessage.success('批量通过成功')
     fetchList()
   } catch (e: unknown) {
@@ -365,7 +365,7 @@ async function batchApprove() {
 async function batchReject() {
   await ElMessageBox.confirm(`确定批量拒绝 ${selectedIds.value.length} 项内容吗？`, '批量审核', { type: 'warning' }).catch(() => { throw new Error('cancel') })
   try {
-    await contentApi.batchReview({ ids: selectedIds.value, action: 'REJECT' })
+    await contentApi.batchReview({ contentIds: selectedIds.value, action: 'reject' })
     ElMessage.success('批量拒绝成功')
     fetchList()
   } catch (e: unknown) {
@@ -383,7 +383,7 @@ async function submitBatchPaid() {
   batchPaidSubmitting.value = true
   try {
     await contentApi.batchPaid({
-      ids: selectedIds.value,
+      contentIds: selectedIds.value,
       isPaid: batchPaidForm.isPaid,
       price: batchPaidForm.isPaid ? batchPaidForm.price : undefined,
     })

@@ -166,9 +166,9 @@ async function loadContent() {
   error.value = ''
   try {
     const res = await getContentDetailApi(contentId.value)
-    const data = (res.data as { data: { title: string; pages: ComicPage[] } }).data
+    const data = (res.data as { data: { title: string; comicPages: ComicPage[] } }).data
     title.value = data.title || ''
-    pages.value = (data.pages || []).sort((a: ComicPage, b: ComicPage) => a.pageNumber - b.pageNumber)
+    pages.value = (data.comicPages || []).sort((a: ComicPage, b: ComicPage) => a.pageNumber - b.pageNumber)
 
     // Restore reading progress
     const savedPage = loadProgress()

@@ -4,9 +4,9 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import NovelReader from './NovelReader.vue'
 
 const mockChapters = [
-  { id: 1, chapterNumber: 1, title: '初遇', textContent: '第一段\n第二段' },
-  { id: 2, chapterNumber: 2, title: '相知', textContent: '第三段\n第四段' },
-  { id: 3, chapterNumber: 3, title: '别离', textContent: '第五段' },
+  { id: 1, chapterNumber: 1, chapterTitle: '初遇', chapterText: '第一段\n第二段' },
+  { id: 2, chapterNumber: 2, chapterTitle: '相知', chapterText: '第三段\n第四段' },
+  { id: 3, chapterNumber: 3, chapterTitle: '别离', chapterText: '第五段' },
 ]
 
 const mockGetContentDetailApi = vi.fn()
@@ -32,8 +32,8 @@ function createTestRouter() {
   })
 }
 
-function mockApiResponse(title: string, chapters: typeof mockChapters) {
-  return { data: { data: { title, chapters } } }
+function mockApiResponse(title: string, novelChapters: typeof mockChapters) {
+  return { data: { data: { title, novelChapters } } }
 }
 
 describe('NovelReader', () => {

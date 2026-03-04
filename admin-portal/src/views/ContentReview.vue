@@ -14,8 +14,8 @@
             <!-- Cover -->
             <div class="cover-wrap">
               <el-image
-                v-if="detail.coverImageUrl"
-                :src="detail.coverImageUrl"
+                v-if="detail.coverUrl"
+                :src="detail.coverUrl"
                 fit="cover"
                 class="cover-img"
               />
@@ -37,7 +37,7 @@
                 <el-tag v-if="detail.isPaid" type="warning" size="small">付费 ¥{{ detail.price }}</el-tag>
                 <span v-else>免费</span>
               </el-descriptions-item>
-              <el-descriptions-item label="故事线">{{ detail.storylineTitle || '-' }}</el-descriptions-item>
+              <el-descriptions-item label="故事线ID">{{ detail.storylineId || '-' }}</el-descriptions-item>
               <el-descriptions-item label="创建时间">{{ formatDate(detail.createdAt) }}</el-descriptions-item>
             </el-descriptions>
 
@@ -48,7 +48,7 @@
                 <el-input v-model="editForm.title" maxlength="200" />
               </el-form-item>
               <el-form-item label="封面图URL">
-                <el-input v-model="editForm.coverImageUrl" placeholder="https://..." />
+                <el-input v-model="editForm.coverUrl" placeholder="https://..." />
               </el-form-item>
               <el-form-item>
                 <el-button type="primary" size="small" :loading="editSubmitting" @click="submitEdit">保存修改</el-button>
@@ -76,7 +76,7 @@
                 <el-button type="success" @click="handleApprove" :loading="reviewSubmitting">通过</el-button>
                 <el-button type="danger" @click="rejectDialogVisible = true">拒绝</el-button>
               </template>
-              <template v-else-if="detail.status === 'APPROVED'">
+              <template v-else-if="detail.status === 'PENDING_PUBLISH'">
                 <el-button type="primary" @click="handlePublish" :loading="publishSubmitting">上架发布</el-button>
               </template>
               <template v-else-if="detail.status === 'PUBLISHED'">
@@ -130,10 +130,10 @@
                 <el-collapse-item
                   v-for="chapter in detail.novelChapters"
                   :key="chapter.id"
-                  :title="`第 ${chapter.chapterNumber} 章：${chapter.title}`"
+                  :title="`第 ${chapter.chapterNumber} 章：${chapter.chapterTitle}`"
                   :name="chapter.id"
                 >
-                  <div class="chapter-content">{{ chapter.content }}</div>
+                  <div class="chapter-content">{{ chapter.chapterText }}</div>
                 </el-collapse-item>
               </el-collapse>
             </template>
@@ -174,7 +174,7 @@ const router = useRouter()
 const loading = ref(false)
 const detail = ref<ContentDetail | null>(null)
 
-const editForm = reactive({ title: '', coverImageUrl: '' })
+const editForm = reactive({ title: '', coverUrl: '' })
 const editSubmitting = ref(false)
 
 const paidForm = reactive({ isPaid: false, price: 9.9 })
@@ -198,10 +198,10 @@ function formatDate(d: string) {
 function statusLabel(s: ContentStatus) {
   const map: Record<ContentStatus, string> = {
     PENDING_REVIEW: '待审核',
-    APPROVED: '已通过',
+    PENDING_PUBLISH: '待发布',
     REJECTED: '已拒绝',
     PUBLISHED: '已发布',
-    UNPUBLISHED: '已下架',
+    OFFLINE: '已下架',
   }
   return map[s] ?? s
 }
@@ -209,10 +209,10 @@ function statusLabel(s: ContentStatus) {
 function statusTagType(s: ContentStatus) {
   const map: Record<ContentStatus, string> = {
     PENDING_REVIEW: 'info',
-    APPROVED: 'success',
+    PENDING_PUBLISH: 'success',
     REJECTED: 'danger',
     PUBLISHED: 'primary',
-    UNPUBLISHED: 'warning',
+    OFFLINE: 'warning',
   }
   return map[s] ?? ''
 }
@@ -226,7 +226,7 @@ async function fetchDetail() {
     const res = await contentApi.get(id)
     detail.value = res.data
     editForm.title = res.data.title
-    editForm.coverImageUrl = res.data.coverImageUrl ?? ''
+    editForm.coverUrl = res.data.coverUrl ?? ''
     paidForm.isPaid = res.data.isPaid
     paidForm.price = res.data.price ?? 9.9
   } catch {
@@ -243,7 +243,7 @@ async function submitEdit() {
   try {
     await contentApi.update(detail.value.id, {
       title: editForm.title,
-      coverImageUrl: editForm.coverImageUrl || undefined,
+      coverUrl: editForm.coverUrl || undefined,
     })
     ElMessage.success('内容已更新')
     await fetchDetail()
@@ -277,7 +277,7 @@ async function handleApprove() {
   if (!detail.value) return
   reviewSubmitting.value = true
   try {
-    await contentApi.review(detail.value.id, { action: 'APPROVE' })
+    await contentApi.review(detail.value.id, { action: 'approve' })
     ElMessage.success('已通过审核')
     await fetchDetail()
   } catch {
@@ -292,7 +292,7 @@ async function handleReject() {
   reviewSubmitting.value = true
   try {
     await contentApi.review(detail.value.id, {
-      action: 'REJECT',
+      action: 'reject',
       reason: rejectReason.value || undefined,
     })
     ElMessage.success('已拒绝')

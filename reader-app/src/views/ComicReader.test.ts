@@ -32,8 +32,8 @@ function createTestRouter() {
   })
 }
 
-function mockApiResponse(title: string, pages: typeof mockPages) {
-  return { data: { data: { title, pages } } }
+function mockApiResponse(title: string, comicPages: typeof mockPages) {
+  return { data: { data: { title, comicPages } } }
 }
 
 describe('ComicReader', () => {

@@ -38,7 +38,7 @@
             :key="ch.id"
             :value="idx"
           >
-            第 {{ ch.chapterNumber }} 章：{{ ch.title }}
+            第 {{ ch.chapterNumber }} 章：{{ ch.chapterTitle }}
           </option>
         </select>
       </div>
@@ -46,7 +46,7 @@
       <!-- Chapter text -->
       <article class="novel-reader__article">
         <h2 class="novel-reader__chapter-title">
-          第 {{ chapters[currentChapter].chapterNumber }} 章：{{ chapters[currentChapter].title }}
+          第 {{ chapters[currentChapter].chapterNumber }} 章：{{ chapters[currentChapter].chapterTitle }}
         </h2>
         <div class="novel-reader__text">
           <p
@@ -92,8 +92,8 @@ import { recordViewApi, recordDurationApi } from '../api/analytics'
 export interface NovelChapter {
   id: number
   chapterNumber: number
-  title: string
-  textContent: string
+  chapterTitle: string
+  chapterText: string
 }
 
 const route = useRoute()
@@ -109,7 +109,7 @@ const enterTime = ref(0)
 
 // Split chapter text into paragraphs for display
 const paragraphs = computed(() => {
-  const text = chapters.value[currentChapter.value]?.textContent ?? ''
+  const text = chapters.value[currentChapter.value]?.chapterText ?? ''
   return text.split('\n').filter((p) => p.trim().length > 0)
 })
 
@@ -164,9 +164,9 @@ async function loadContent() {
   error.value = ''
   try {
     const res = await getContentDetailApi(contentId.value)
-    const data = (res.data as { data: { title: string; chapters: NovelChapter[] } }).data
+    const data = (res.data as { data: { title: string; novelChapters: NovelChapter[] } }).data
     title.value = data.title || ''
-    chapters.value = (data.chapters || []).sort(
+    chapters.value = (data.novelChapters || []).sort(
       (a: NovelChapter, b: NovelChapter) => a.chapterNumber - b.chapterNumber
     )
 

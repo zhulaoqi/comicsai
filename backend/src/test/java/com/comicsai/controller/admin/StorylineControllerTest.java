@@ -14,6 +14,7 @@ import com.comicsai.model.vo.GenerationConfigVO;
 import com.comicsai.model.vo.PageVO;
 import com.comicsai.model.vo.StorylineDetailVO;
 import com.comicsai.model.vo.StorylineVO;
+import com.comicsai.service.ContentGeneratorService;
 import com.comicsai.service.StorylineService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,9 @@ class StorylineControllerTest {
 
     @MockBean
     private StorylineService storylineService;
+
+    @MockBean
+    private ContentGeneratorService contentGeneratorService;
 
     @MockBean
     private JwtUtil jwtUtil;

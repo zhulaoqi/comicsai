@@ -1,6 +1,6 @@
 import request, { type ApiResponse } from './request'
 
-export type ContentStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'PUBLISHED' | 'UNPUBLISHED'
+export type ContentStatus = 'PENDING_REVIEW' | 'PENDING_PUBLISH' | 'REJECTED' | 'PUBLISHED' | 'OFFLINE'
 export type ContentType = 'COMIC' | 'NOVEL'
 
 export interface ContentItem {
@@ -10,9 +10,8 @@ export interface ContentItem {
   status: ContentStatus
   isPaid: boolean
   price: number | null
-  coverImageUrl: string | null
+  coverUrl: string | null
   storylineId: number | null
-  storylineTitle: string | null
   createdAt: string
 }
 
@@ -26,11 +25,13 @@ export interface ComicPage {
 export interface NovelChapter {
   id: number
   chapterNumber: number
-  title: string
-  content: string
+  chapterTitle: string
+  chapterText: string
 }
 
 export interface ContentDetail extends ContentItem {
+  description: string | null
+  publishedAt: string | null
   comicPages?: ComicPage[]
   novelChapters?: NovelChapter[]
 }
@@ -52,7 +53,7 @@ export interface ContentListResult {
 }
 
 export interface ReviewBody {
-  action: 'APPROVE' | 'REJECT'
+  action: 'approve' | 'reject'
   reason?: string
 }
 
@@ -62,12 +63,12 @@ export interface PaidBody {
 }
 
 export interface BatchReviewBody {
-  ids: number[]
-  action: 'APPROVE' | 'REJECT'
+  contentIds: number[]
+  action: 'approve' | 'reject'
 }
 
 export interface BatchPaidBody {
-  ids: number[]
+  contentIds: number[]
   isPaid: boolean
   price?: number
 }
@@ -81,7 +82,7 @@ export const contentApi = {
     return request.get(`/contents/${id}`).then(r => r.data)
   },
 
-  update(id: number, data: { title?: string; coverImageUrl?: string }): Promise<ApiResponse<ContentItem>> {
+  update(id: number, data: { title?: string; coverUrl?: string }): Promise<ApiResponse<ContentItem>> {
     return request.put(`/contents/${id}`, data).then(r => r.data)
   },
 
@@ -90,11 +91,11 @@ export const contentApi = {
   },
 
   publish(id: number): Promise<ApiResponse<void>> {
-    return request.put(`/contents/${id}/status`, { action: 'PUBLISH' }).then(r => r.data)
+    return request.put(`/contents/${id}/status`, { action: 'online' }).then(r => r.data)
   },
 
   unpublish(id: number): Promise<ApiResponse<void>> {
-    return request.put(`/contents/${id}/status`, { action: 'UNPUBLISH' }).then(r => r.data)
+    return request.put(`/contents/${id}/status`, { action: 'offline' }).then(r => r.data)
   },
 
   setPaid(id: number, body: PaidBody): Promise<ApiResponse<void>> {

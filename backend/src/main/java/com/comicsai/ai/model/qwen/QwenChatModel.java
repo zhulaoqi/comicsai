@@ -1,8 +1,8 @@
-package com.comicsai.ai.qwen;
+package com.comicsai.ai.model.qwen;
 
-import com.comicsai.ai.TextAiProvider;
-import com.comicsai.ai.TextGenerationRequest;
-import com.comicsai.ai.TextGenerationResult;
+import com.comicsai.ai.message.Msg;
+import com.comicsai.ai.model.ChatModel;
+import com.comicsai.ai.model.ModelConfig;
 import com.comicsai.common.exception.AiProviderException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,10 +13,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
 
-public class QwenTextProvider implements TextAiProvider {
+import java.util.List;
 
-    private static final Logger log = LoggerFactory.getLogger(QwenTextProvider.class);
-    private static final String PROVIDER_NAME = "qwen";
+/**
+ * Alibaba Qwen (通义千问) chat model via DashScope compatible-mode API.
+ */
+public class QwenChatModel implements ChatModel {
+
+    private static final Logger log = LoggerFactory.getLogger(QwenChatModel.class);
+    private static final String NAME = "qwen";
     private static final String DEFAULT_MODEL = "qwen-turbo";
     private static final String API_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 
@@ -24,35 +29,36 @@ public class QwenTextProvider implements TextAiProvider {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public QwenTextProvider(String apiKey, String baseUrl) {
+    public QwenChatModel(String apiKey) {
         this.apiKey = apiKey;
     }
 
     @Override
-    public TextGenerationResult generateText(TextGenerationRequest request) {
-        if (request == null || request.getPrompt() == null || request.getPrompt().isBlank()) {
-            throw new AiProviderException(PROVIDER_NAME, "Prompt must not be null or blank");
+    public Msg chat(List<Msg> messages, ModelConfig config) {
+        if (messages == null || messages.isEmpty()) {
+            throw new AiProviderException(NAME, "Messages must not be empty");
         }
 
-        String model = request.getModel() != null ? request.getModel() : DEFAULT_MODEL;
-        log.info("Calling Qwen text generation: model={}", model);
+        String model = config.getModelName() != null ? config.getModelName() : DEFAULT_MODEL;
+        log.info("Qwen chat: model={}", model);
 
         try {
             ObjectNode body = objectMapper.createObjectNode();
             body.put("model", model);
 
-            ArrayNode messages = objectMapper.createArrayNode();
-            if (request.getSystemPrompt() != null && !request.getSystemPrompt().isBlank()) {
-                messages.addObject().put("role", "system").put("content", request.getSystemPrompt());
+            ArrayNode msgArray = objectMapper.createArrayNode();
+            for (Msg m : messages) {
+                msgArray.addObject()
+                        .put("role", m.getRole())
+                        .put("content", m.getContent());
             }
-            messages.addObject().put("role", "user").put("content", request.getPrompt());
-            body.set("messages", messages);
+            body.set("messages", msgArray);
 
-            if (request.getTemperature() != null) {
-                body.put("temperature", request.getTemperature());
+            if (config.getTemperature() != null) {
+                body.put("temperature", config.getTemperature());
             }
-            if (request.getMaxTokens() != null) {
-                body.put("max_tokens", request.getMaxTokens());
+            if (config.getMaxTokens() != null) {
+                body.put("max_tokens", config.getMaxTokens());
             }
 
             HttpHeaders headers = new HttpHeaders();
@@ -66,7 +72,7 @@ public class QwenTextProvider implements TextAiProvider {
 
             JsonNode respBody = response.getBody();
             if (respBody == null) {
-                throw new AiProviderException(PROVIDER_NAME, "Empty response from Qwen API");
+                throw new AiProviderException(NAME, "Empty response from Qwen API");
             }
 
             String content = respBody.path("choices").get(0)
@@ -77,17 +83,25 @@ public class QwenTextProvider implements TextAiProvider {
             int outputTokens = usage.path("completion_tokens").asInt(0);
 
             log.info("Qwen response: inputTokens={}, outputTokens={}", inputTokens, outputTokens);
-            return new TextGenerationResult(content, inputTokens, outputTokens, model);
+
+            return Msg.builder()
+                    .name(NAME)
+                    .role(Msg.ROLE_ASSISTANT)
+                    .content(content)
+                    .meta("inputTokens", inputTokens)
+                    .meta("outputTokens", outputTokens)
+                    .meta("model", model)
+                    .build();
 
         } catch (AiProviderException e) {
             throw e;
         } catch (Exception e) {
-            throw new AiProviderException(PROVIDER_NAME, "Failed to call Qwen API: " + e.getMessage(), e);
+            throw new AiProviderException(NAME, "Failed to call Qwen API: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public String getProviderName() {
-        return PROVIDER_NAME;
+    public String getName() {
+        return NAME;
     }
 }
