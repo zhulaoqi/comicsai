@@ -10,8 +10,19 @@
 
 > English: ComicsAI is an AI-powered reading platform for comics and novels, covering generation, moderation, publishing, monetization, and analytics in one workflow.
 
+## 效果展示
+
+### 用户端（Reader App）
+
+![用户端 - 内容发现页](docs/images/reader-app.png)
+
+### 管理端（Admin Portal）
+
+![管理端 - 内容管理页](docs/images/admin-portal.png)
+
 ## 目录
 
+- [效果展示](#效果展示)
 - [功能亮点](#功能亮点)
 - [技术栈](#技术栈)
 - [项目结构](#项目结构)
