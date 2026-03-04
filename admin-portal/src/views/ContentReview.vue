@@ -546,6 +546,13 @@ onUnmounted(stopPolling)
   margin-bottom: 8px;
 }
 
+.meta-desc :deep(.el-descriptions__content) {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .review-actions {
   display: flex;
   gap: 8px;
@@ -615,6 +622,16 @@ onUnmounted(stopPolling)
   justify-content: space-between;
   width: 100%;
   padding-right: 8px;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.chapter-header > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .chapter-price-tag {
@@ -641,6 +658,7 @@ onUnmounted(stopPolling)
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .regenerating-banner {

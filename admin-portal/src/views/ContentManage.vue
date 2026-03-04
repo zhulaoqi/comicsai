@@ -53,7 +53,7 @@
       @selection-change="handleSelectionChange"
     >
       <el-table-column type="selection" width="50" />
-      <el-table-column prop="title" label="标题" min-width="160" show-overflow-tooltip />
+      <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
       <el-table-column prop="contentType" label="类型" width="80">
         <template #default="{ row }">
           <el-tag :type="row.contentType === 'COMIC' ? 'primary' : 'success'" size="small">

@@ -10,74 +10,131 @@
     </header>
 
     <main class="recharge-content container">
-      <!-- Current balance -->
-      <section class="balance-display">
-        <span class="balance-display__label">当前余额</span>
-        <span class="balance-display__amount">¥{{ currentBalance.toFixed(2) }}</span>
-      </section>
+      <!-- Step 1: Select amount -->
+      <template v-if="step === 'select'">
+        <!-- Current balance -->
+        <section class="balance-display">
+          <span class="balance-display__label">当前余额</span>
+          <span class="balance-display__amount">¥{{ currentBalance.toFixed(2) }}</span>
+        </section>
 
-      <!-- Preset amounts -->
-      <section class="amount-section">
-        <h2 class="amount-section__title">选择充值金额</h2>
-        <div class="amount-grid" role="group" aria-label="充值金额选项">
-          <button
-            v-for="preset in presetAmounts"
-            :key="preset"
-            class="amount-option"
-            :class="{ 'amount-option--active': selectedAmount === preset && !customMode }"
-            @click="selectPreset(preset)"
-          >
-            <span class="amount-option__value">¥{{ preset }}</span>
-          </button>
-        </div>
-
-        <!-- Custom amount -->
-        <div class="custom-amount">
-          <label class="custom-amount__label" for="customAmount">自定义金额</label>
-          <div class="custom-amount__input-wrap" :class="{ 'custom-amount__input-wrap--active': customMode }">
-            <span class="custom-amount__prefix">¥</span>
-            <input
-              id="customAmount"
-              v-model="customAmountStr"
-              type="number"
-              class="custom-amount__input"
-              placeholder="输入金额"
-              min="1"
-              max="9999"
-              step="1"
-              @focus="customMode = true"
-              @input="onCustomInput"
-            />
+        <!-- Preset amounts -->
+        <section class="amount-section">
+          <h2 class="amount-section__title">选择充值金额</h2>
+          <div class="amount-grid" role="group" aria-label="充值金额选项">
+            <button
+              v-for="preset in presetAmounts"
+              :key="preset"
+              class="amount-option"
+              :class="{ 'amount-option--active': selectedAmount === preset && !customMode }"
+              @click="selectPreset(preset)"
+            >
+              <span class="amount-option__value">¥{{ preset }}</span>
+            </button>
           </div>
-        </div>
-      </section>
 
-      <!-- Summary -->
-      <section class="recharge-summary">
-        <div class="recharge-summary__row">
-          <span>充值金额</span>
-          <span class="recharge-summary__value">¥{{ finalAmount.toFixed(2) }}</span>
-        </div>
-        <div class="recharge-summary__row">
-          <span>充值后余额</span>
-          <span class="recharge-summary__value recharge-summary__value--highlight">
-            ¥{{ (currentBalance + finalAmount).toFixed(2) }}
-          </span>
-        </div>
-      </section>
+          <!-- Custom amount -->
+          <div class="custom-amount">
+            <label class="custom-amount__label" for="customAmount">自定义金额</label>
+            <div class="custom-amount__input-wrap" :class="{ 'custom-amount__input-wrap--active': customMode }">
+              <span class="custom-amount__prefix">¥</span>
+              <input
+                id="customAmount"
+                v-model="customAmountStr"
+                type="number"
+                class="custom-amount__input"
+                placeholder="输入金额"
+                min="1"
+                max="9999"
+                step="1"
+                @focus="customMode = true"
+                @input="onCustomInput"
+              />
+            </div>
+          </div>
+        </section>
 
-      <!-- Error -->
-      <p v-if="errorMsg" class="recharge-error" role="alert">{{ errorMsg }}</p>
+        <!-- Summary -->
+        <section class="recharge-summary">
+          <div class="recharge-summary__row">
+            <span>充值金额</span>
+            <span class="recharge-summary__value">¥{{ finalAmount.toFixed(2) }}</span>
+          </div>
+          <div class="recharge-summary__row">
+            <span>充值后余额</span>
+            <span class="recharge-summary__value recharge-summary__value--highlight">
+              ¥{{ (currentBalance + finalAmount).toFixed(2) }}
+            </span>
+          </div>
+        </section>
 
-      <!-- Confirm button -->
-      <button
-        class="btn-confirm"
-        :disabled="finalAmount <= 0 || loading"
-        @click="handleRecharge"
-      >
-        <span v-if="loading" class="spinner" aria-hidden="true" />
-        {{ loading ? '处理中...' : `确认充值 ¥${finalAmount.toFixed(2)}` }}
-      </button>
+        <!-- Payment method -->
+        <section class="payment-method">
+          <h2 class="payment-method__title">支付方式</h2>
+          <div class="payment-method__options">
+            <button
+              class="payment-method__btn"
+              :class="{ 'payment-method__btn--active': payMethod === 'xunhupay' }"
+              @click="payMethod = 'xunhupay'"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                <line x1="1" y1="10" x2="23" y2="10" />
+              </svg>
+              支付宝 / 微信
+            </button>
+          </div>
+        </section>
+
+        <!-- Error -->
+        <p v-if="errorMsg" class="recharge-error" role="alert">{{ errorMsg }}</p>
+
+        <!-- Confirm button -->
+        <button
+          class="btn-confirm"
+          :disabled="finalAmount <= 0 || loading"
+          @click="handleCreateOrder"
+        >
+          <span v-if="loading" class="spinner" aria-hidden="true" />
+          {{ loading ? '创建订单中...' : `确认充值 ¥${finalAmount.toFixed(2)}` }}
+        </button>
+      </template>
+
+      <!-- Step 2: QR code / pay link -->
+      <template v-if="step === 'paying'">
+        <section class="qrcode-section">
+          <div class="qrcode-header">
+            <h2 class="qrcode-title">扫码支付</h2>
+            <p class="qrcode-amount">¥{{ orderAmount.toFixed(2) }}</p>
+          </div>
+
+          <div class="qrcode-wrap">
+            <div v-if="qrcodeUrl" class="qrcode-frame">
+              <img :src="qrcodeUrl" alt="支付二维码" class="qrcode-img" />
+            </div>
+            <p class="qrcode-hint">请使用 支付宝 / 微信 扫描二维码完成支付</p>
+          </div>
+
+          <!-- Mobile: direct pay link -->
+          <a v-if="payUrl" :href="payUrl" class="btn-mobile-pay" target="_blank">
+            手机端直接支付 →
+          </a>
+
+          <div class="qrcode-status">
+            <div v-if="polling" class="polling-indicator">
+              <div class="polling-dot" />
+              等待支付中...
+            </div>
+            <p class="qrcode-expire">
+              二维码有效期 {{ xunhupayProperties.orderExpireMinutes || 5 }} 分钟，过期后请重新创建订单
+            </p>
+          </div>
+
+          <div class="qrcode-actions">
+            <button class="btn-secondary" @click="cancelPayment">取消支付</button>
+          </div>
+        </section>
+      </template>
     </main>
 
     <!-- Success overlay -->
@@ -95,12 +152,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { getUserProfileApi, rechargeApi } from '../api/user'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { getUserProfileApi, createPaymentOrderApi, getPaymentStatusApi } from '../api/user'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const presetAmounts = [10, 30, 50, 100]
@@ -112,6 +170,19 @@ const customMode = ref(false)
 const loading = ref(false)
 const errorMsg = ref('')
 const showSuccess = ref(false)
+const payMethod = ref('xunhupay')
+
+type Step = 'select' | 'paying'
+const step = ref<Step>('select')
+
+const orderNo = ref('')
+const orderAmount = ref(0)
+const qrcodeUrl = ref('')
+const payUrl = ref('')
+const polling = ref(false)
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+const xunhupayProperties = { orderExpireMinutes: 5 }
 
 const finalAmount = computed(() => {
   if (customMode.value) {
@@ -137,12 +208,11 @@ async function loadBalance() {
     const res = await getUserProfileApi()
     currentBalance.value = res.data.data.balance
   } catch {
-    // Use balance from auth store as fallback
     currentBalance.value = authStore.user?.balance ?? 0
   }
 }
 
-async function handleRecharge() {
+async function handleCreateOrder() {
   if (finalAmount.value <= 0) {
     errorMsg.value = '请选择或输入有效的充值金额'
     return
@@ -155,19 +225,59 @@ async function handleRecharge() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await rechargeApi(finalAmount.value)
-    currentBalance.value = res.data.data.balance
-    // Sync auth store balance
-    if (authStore.user) {
-      authStore.setUser({ ...authStore.user, balance: currentBalance.value })
-    }
-    showSuccess.value = true
+    const res = await createPaymentOrderApi(finalAmount.value)
+    const data = res.data.data
+    orderNo.value = data.orderNo
+    orderAmount.value = data.amount
+    qrcodeUrl.value = data.qrcodeUrl
+    payUrl.value = data.payUrl
+    step.value = 'paying'
+    startPolling()
   } catch (err: unknown) {
     const axiosErr = err as { response?: { data?: { message?: string } } }
-    errorMsg.value = axiosErr.response?.data?.message ?? '充值失败，请稍后重试'
+    errorMsg.value = axiosErr.response?.data?.message ?? '创建订单失败，请稍后重试'
   } finally {
     loading.value = false
   }
+}
+
+function startPolling() {
+  polling.value = true
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await getPaymentStatusApi(orderNo.value)
+      const status = res.data.data.status
+      if (status === 'PAID') {
+        stopPolling()
+        await loadBalance()
+        if (authStore.user) {
+          authStore.setUser({ ...authStore.user, balance: currentBalance.value })
+        }
+        showSuccess.value = true
+        step.value = 'select'
+      } else if (status === 'EXPIRED' || status === 'FAILED') {
+        stopPolling()
+        errorMsg.value = status === 'EXPIRED' ? '订单已过期，请重新充值' : '支付失败，请重试'
+        step.value = 'select'
+      }
+    } catch {
+      // 轮询失败静默处理
+    }
+  }, 3000)
+}
+
+function stopPolling() {
+  polling.value = false
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+function cancelPayment() {
+  stopPolling()
+  step.value = 'select'
+  errorMsg.value = ''
 }
 
 function goToProfile() {
@@ -176,6 +286,18 @@ function goToProfile() {
 
 onMounted(() => {
   loadBalance()
+  if (route.query.status === 'success') {
+    loadBalance().then(() => {
+      if (authStore.user) {
+        authStore.setUser({ ...authStore.user, balance: currentBalance.value })
+      }
+      showSuccess.value = true
+    })
+  }
+})
+
+onBeforeUnmount(() => {
+  stopPolling()
 })
 </script>
 
@@ -353,10 +475,56 @@ onMounted(() => {
   color: var(--color-text-muted);
 }
 
-/* Hide number input arrows */
 .custom-amount__input::-webkit-outer-spin-button,
 .custom-amount__input::-webkit-inner-spin-button {
   -webkit-appearance: none;
+}
+
+/* Payment method */
+.payment-method {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.payment-method__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.payment-method__options {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.payment-method__btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.payment-method__btn:hover {
+  border-color: var(--color-primary-light);
+}
+
+.payment-method__btn--active {
+  border-color: var(--color-primary);
+  background: var(--color-secondary);
+  color: var(--color-primary);
 }
 
 /* Summary */
@@ -421,6 +589,139 @@ onMounted(() => {
 .btn-confirm:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* QR Code section */
+.qrcode-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xl);
+}
+
+.qrcode-header {
+  text-align: center;
+}
+
+.qrcode-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.qrcode-amount {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin-top: var(--spacing-xs);
+}
+
+.qrcode-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.qrcode-frame {
+  width: 240px;
+  height: 240px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+}
+
+.qrcode-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.qrcode-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.btn-mobile-pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  transition: background var(--transition-fast);
+}
+
+.btn-mobile-pay:hover {
+  background: var(--color-primary-dark);
+  color: var(--color-text-inverse);
+}
+
+.qrcode-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.polling-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.polling-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.qrcode-expire {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.qrcode-actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.btn-secondary {
+  padding: var(--spacing-sm) var(--spacing-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-card);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-secondary:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-text-muted);
 }
 
 /* Success overlay */

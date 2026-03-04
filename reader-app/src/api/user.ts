@@ -34,3 +34,25 @@ export function getRechargeRecordsApi() {
 export function unlockContentApi(contentId: number) {
   return request.post<ApiResponse<UnlockResult>>(`/reader/contents/${contentId}/unlock`)
 }
+
+export interface PaymentOrderResult {
+  orderNo: string
+  qrcodeUrl: string
+  payUrl: string
+  amount: number
+}
+
+export interface PaymentStatusResult {
+  orderNo: string
+  status: 'PENDING' | 'PAID' | 'EXPIRED' | 'FAILED'
+  amount: number
+  paidAt: string | null
+}
+
+export function createPaymentOrderApi(amount: number) {
+  return request.post<ApiResponse<PaymentOrderResult>>('/reader/payment/create', { amount })
+}
+
+export function getPaymentStatusApi(orderNo: string) {
+  return request.get<ApiResponse<PaymentStatusResult>>(`/reader/payment/status/${orderNo}`)
+}

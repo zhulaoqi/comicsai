@@ -15,7 +15,7 @@
 
     <!-- Table -->
     <el-table :data="storylines" v-loading="loading" border stripe>
-      <el-table-column prop="title" label="标题" min-width="160" />
+      <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
       <el-table-column prop="genre" label="题材" width="120" />
       <el-table-column prop="contentType" label="类型" width="100">
         <template #default="{ row }">

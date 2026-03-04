@@ -58,7 +58,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/reader/auth/register",
                         "/api/reader/auth/login",
                         "/api/reader/oauth/**",
-                        "/api/admin/auth/login"
+                        "/api/admin/auth/login",
+                        "/api/payment/notify"
                 );
     }
 }
