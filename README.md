@@ -14,11 +14,11 @@
 
 ### 用户端（Reader App）
 
-![用户端 - 内容发现页](docs/images/reader-app.png)
+![用户端 - 内容发现页](./docs/images/reader-app.jpg)
 
 ### 管理端（Admin Portal）
 
-![管理端 - 内容管理页](docs/images/admin-portal.png)
+![管理端 - 内容管理页](./docs/images/admin-portal.jpg)
 
 ## 目录
 
