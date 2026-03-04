@@ -14,6 +14,7 @@ public class GenerationConfigDTO {
     private String imageModel;
     private Double temperature;
     private Integer maxTokens;
+    private Integer chapterWordCount;
     private String imageStyle;
     private String imageSize;
 
@@ -36,6 +37,9 @@ public class GenerationConfigDTO {
 
     public Integer getMaxTokens() { return maxTokens; }
     public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
+
+    public Integer getChapterWordCount() { return chapterWordCount; }
+    public void setChapterWordCount(Integer chapterWordCount) { this.chapterWordCount = chapterWordCount; }
 
     public String getImageStyle() { return imageStyle; }
     public void setImageStyle(String imageStyle) { this.imageStyle = imageStyle; }

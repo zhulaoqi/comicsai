@@ -125,7 +125,8 @@ public class ContentGeneratorService {
         config.setImageProvider("wanxiang");
         config.setImageModel("wanx-v1");
         config.setTemperature(0.7);
-        config.setMaxTokens(2000);
+        config.setMaxTokens(8192);
+        config.setChapterWordCount(2000);
         config.setImageStyle("anime");
         config.setImageSize("1024*1024");
         return config;

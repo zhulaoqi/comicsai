@@ -24,11 +24,14 @@ export interface ComicPage {
   dialogueText: string | null
 }
 
+export type ChapterStatus = 'DRAFT' | 'PUBLISHED'
+
 export interface NovelChapter {
   id: number
   chapterNumber: number
   chapterTitle: string
   chapterText: string
+  status: ChapterStatus
   price: number | null
 }
 
@@ -127,5 +130,17 @@ export const contentApi = {
 
   regenerateChapter(chapterId: number): Promise<ApiResponse<void>> {
     return request.post(`/contents/chapters/${chapterId}/regenerate`).then(r => r.data)
+  },
+
+  publishChapter(chapterId: number): Promise<ApiResponse<void>> {
+    return request.put(`/contents/chapters/${chapterId}/publish`).then(r => r.data)
+  },
+
+  unpublishChapter(chapterId: number): Promise<ApiResponse<void>> {
+    return request.put(`/contents/chapters/${chapterId}/unpublish`).then(r => r.data)
+  },
+
+  publishAllChapters(contentId: number): Promise<ApiResponse<void>> {
+    return request.put(`/contents/${contentId}/chapters/publish-all`).then(r => r.data)
   },
 }

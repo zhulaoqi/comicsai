@@ -35,6 +35,7 @@ export interface GenerationConfig {
   textTemperature: number
   imageSize: string
   chaptersPerGeneration: number
+  chapterWordCount: number
 }
 
 export const storylineApi = {

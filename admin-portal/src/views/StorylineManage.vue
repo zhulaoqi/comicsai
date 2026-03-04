@@ -14,17 +14,17 @@
     </div>
 
     <!-- Table -->
-    <el-table :data="storylines" v-loading="loading" border stripe>
-      <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
-      <el-table-column prop="genre" label="题材" width="120" />
-      <el-table-column prop="contentType" label="类型" width="100">
+    <el-table :data="storylines" v-loading="loading" border stripe style="width:100%">
+      <el-table-column prop="title" label="标题" min-width="140" show-overflow-tooltip />
+      <el-table-column prop="genre" label="题材" width="80" align="center" />
+      <el-table-column prop="contentType" label="类型" width="80" align="center">
         <template #default="{ row }">
           <el-tag :type="row.contentType === 'COMIC' ? 'primary' : 'success'" size="small">
             {{ row.contentType === 'COMIC' ? '漫画' : '小说' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="100">
+      <el-table-column prop="status" label="状态" width="80" align="center">
         <template #default="{ row }">
           <el-switch
             :model-value="row.status === 'ENABLED'"
@@ -33,15 +33,15 @@
           />
         </template>
       </el-table-column>
-      <el-table-column prop="generatedCount" label="已生成" width="90" align="center" />
+      <el-table-column prop="generatedCount" label="已生成" width="70" align="center" />
       <el-table-column prop="createdAt" label="创建时间" width="160">
         <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right" class-name="col-actions">
         <template #default="{ row }">
-          <el-button size="small" @click="openEditDialog(row.id)">编辑</el-button>
-          <el-button size="small" type="info" @click="openConfigDialog(row.id)">生成配置</el-button>
-          <el-button size="small" type="success" :loading="generatingId === row.id" @click="handleGenerate(row)">生成</el-button>
+          <el-button size="small" link type="primary" :icon="Edit" @click="openEditDialog(row.id)">编辑</el-button>
+          <el-button size="small" link type="primary" :icon="Setting" @click="openConfigDialog(row.id)">配置</el-button>
+          <el-button size="small" link type="success" :icon="VideoPlay" :loading="generatingId === row.id" @click="handleGenerate(row)">生成</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -161,6 +161,15 @@
         </el-form-item>
 
         <el-divider content-position="left">生成策略</el-divider>
+        <el-form-item label="每章目标字数" prop="chapterWordCount">
+          <el-select v-model="configForm.chapterWordCount" style="width:100%">
+            <el-option :value="1500" label="1500字（短篇/快节奏）" />
+            <el-option :value="2000" label="2000字（标准）" />
+            <el-option :value="2500" label="2500字（中等）" />
+            <el-option :value="3000" label="3000字（主流网文）" />
+            <el-option :value="4000" label="4000字（长篇/详细描写）" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="每次生成章节数" prop="chaptersPerGeneration">
           <el-input-number
             v-model="configForm.chaptersPerGeneration"
@@ -180,7 +189,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Setting, VideoPlay } from '@element-plus/icons-vue'
 import { storylineApi, type Storyline, type StorylineForm, type GenerationConfig } from '../api/storyline'
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -213,7 +222,7 @@ const configLoading = ref(false)
 const configSubmitting = ref(false)
 const configFormRef = ref<FormInstance>()
 
-const configForm = reactive<GenerationConfig>({
+const CONFIG_DEFAULTS: GenerationConfig = {
   textProvider: 'qwen',
   textModel: 'qwen-max',
   imageProvider: 'wanxiang',
@@ -221,7 +230,10 @@ const configForm = reactive<GenerationConfig>({
   textTemperature: 0.8,
   imageSize: '1024x1024',
   chaptersPerGeneration: 1,
-})
+  chapterWordCount: 2000,
+}
+
+const configForm = reactive<GenerationConfig>({ ...CONFIG_DEFAULTS })
 
 // ── Options ────────────────────────────────────────────────────────────────
 const genreOptions = ['奇幻', '科幻', '武侠', '都市', '历史', '悬疑', '言情', '恐怖', '其他']
@@ -403,6 +415,7 @@ async function handleGenerate(row: Storyline) {
 // ── Generation Config ──────────────────────────────────────────────────────
 async function openConfigDialog(id: number) {
   configStorylineId.value = id
+  Object.assign(configForm, CONFIG_DEFAULTS)
   configDialogVisible.value = true
   configLoading.value = true
   try {
@@ -419,6 +432,7 @@ async function openConfigDialog(id: number) {
 
 function resetConfig() {
   configStorylineId.value = null
+  Object.assign(configForm, CONFIG_DEFAULTS)
   configFormRef.value?.clearValidate()
 }
 
@@ -459,5 +473,12 @@ onMounted(fetchStorylines)
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+}
+
+:deep(.col-actions .cell) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 </style>

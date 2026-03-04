@@ -65,6 +65,8 @@ public class NovelPipeline implements GenerationPipeline {
         String systemPrompt = buildSystemPrompt(storyline);
         int chapterNum = (storyline.getGeneratedCount() != null ? storyline.getGeneratedCount() : 0) + 1;
 
+        int wordCount = config.getChapterWordCount() != null ? config.getChapterWordCount() : 2000;
+
         // Step 1: Generate chapter content via NovelWriterAgent
         Msg writerInput = Msg.builder()
                 .name("pipeline")
@@ -72,6 +74,7 @@ public class NovelPipeline implements GenerationPipeline {
                 .content("创作第" + chapterNum + "章")
                 .meta("storylineContext", systemPrompt)
                 .meta("chapterNum", chapterNum)
+                .meta("chapterWordCount", wordCount)
                 .meta("chatModelName", config.getTextProvider())
                 .meta("textModel", config.getTextModel())
                 .meta("temperature", config.getTemperature())
@@ -107,12 +110,13 @@ public class NovelPipeline implements GenerationPipeline {
                 config.getTextProvider(), writerResult.getModel(),
                 writerResult.getInputTokens(), writerResult.getOutputTokens());
 
-        // Step 3: Save novel chapter
+        // Step 3: Save novel chapter (default DRAFT, needs manual publish)
         NovelChapter chapter = new NovelChapter();
         chapter.setContentId(content.getId());
         chapter.setChapterNumber(chapterNum);
         chapter.setChapterTitle(chapterTitle);
         chapter.setChapterText(chapterText);
+        chapter.setStatus("DRAFT");
         novelChapterMapper.insert(chapter);
 
         // Step 4: Generate summary for continuity
@@ -210,6 +214,7 @@ public class NovelPipeline implements GenerationPipeline {
         int chapterNum = oldChapter.getChapterNumber();
 
         String systemPrompt = buildRegeneratePrompt(storyline, content.getId(), chapterNum);
+        int wordCount = config.getChapterWordCount() != null ? config.getChapterWordCount() : 2000;
 
         Msg writerInput = Msg.builder()
                 .name("pipeline")
@@ -217,6 +222,7 @@ public class NovelPipeline implements GenerationPipeline {
                 .content("重新创作第" + chapterNum + "章，请生成与之前不同的全新内容")
                 .meta("storylineContext", systemPrompt)
                 .meta("chapterNum", chapterNum)
+                .meta("chapterWordCount", wordCount)
                 .meta("chatModelName", config.getTextProvider())
                 .meta("textModel", config.getTextModel())
                 .meta("temperature", config.getTemperature())
@@ -229,6 +235,7 @@ public class NovelPipeline implements GenerationPipeline {
 
         oldChapter.setChapterTitle(chapterTitle);
         oldChapter.setChapterText(chapterText);
+        oldChapter.setStatus("DRAFT");
         novelChapterMapper.updateById(oldChapter);
 
         recordTokenUsage(content.getId(), storyline.getId(),
@@ -252,7 +259,14 @@ public class NovelPipeline implements GenerationPipeline {
      */
     private String buildRegeneratePrompt(Storyline storyline, Long contentId, int chapterNum) {
         StringBuilder sb = new StringBuilder();
-        sb.append("你是一位专业的创意写作AI助手。请基于以下故事线设定进行创作。\n\n");
+        sb.append("你是一位资深网络小说作家，擅长创作引人入胜的长篇连载小说。")
+          .append("你的写作风格成熟流畅，善于通过细腻的场景描写、生动的人物对话和紧凑的情节推进来吸引读者。\n\n");
+        sb.append("【写作要求】\n");
+        sb.append("- 每个场景都要有充分的环境描写和氛围渲染\n");
+        sb.append("- 人物对话要自然生动，符合角色性格，适当穿插心理描写\n");
+        sb.append("- 情节推进要有起伏节奏，设置悬念和冲突，避免流水账\n");
+        sb.append("- 适当使用比喻、拟人等修辞手法增强文学性\n");
+        sb.append("- 章节结尾要留有悬念，吸引读者继续阅读\n\n");
         sb.append("【角色设定】\n").append(storyline.getCharacterSettings()).append("\n\n");
         sb.append("【世界观】\n").append(storyline.getWorldview()).append("\n\n");
         sb.append("【剧情大纲】\n").append(storyline.getPlotOutline()).append("\n\n");
@@ -272,13 +286,20 @@ public class NovelPipeline implements GenerationPipeline {
 
     String buildSystemPrompt(Storyline storyline) {
         StringBuilder sb = new StringBuilder();
-        sb.append("你是一位专业的创意写作AI助手。请基于以下故事线设定进行创作。\n\n");
+        sb.append("你是一位资深网络小说作家，擅长创作引人入胜的长篇连载小说。")
+          .append("你的写作风格成熟流畅，善于通过细腻的场景描写、生动的人物对话和紧凑的情节推进来吸引读者。\n\n");
+        sb.append("【写作要求】\n");
+        sb.append("- 每个场景都要有充分的环境描写和氛围渲染\n");
+        sb.append("- 人物对话要自然生动，符合角色性格，适当穿插心理描写\n");
+        sb.append("- 情节推进要有起伏节奏，设置悬念和冲突，避免流水账\n");
+        sb.append("- 适当使用比喻、拟人等修辞手法增强文学性\n");
+        sb.append("- 章节结尾要留有悬念，吸引读者继续阅读\n\n");
         sb.append("【角色设定】\n").append(storyline.getCharacterSettings()).append("\n\n");
         sb.append("【世界观】\n").append(storyline.getWorldview()).append("\n\n");
         sb.append("【剧情大纲】\n").append(storyline.getPlotOutline()).append("\n\n");
         if (storyline.getLatestChapterSummary() != null && !storyline.getLatestChapterSummary().isBlank()) {
             sb.append("【前章摘要】\n").append(storyline.getLatestChapterSummary()).append("\n\n");
-            sb.append("请基于前章摘要继续创作，保持剧情连贯性。\n");
+            sb.append("请基于前章摘要继续创作，保持剧情连贯性和人物性格一致性。\n");
         }
         return sb.toString();
     }

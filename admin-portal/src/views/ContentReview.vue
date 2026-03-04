@@ -140,7 +140,14 @@
             <!-- Novel Chapters -->
             <template v-else>
               <div v-if="!detail.novelChapters?.length" class="empty-tip">暂无章节内容</div>
-              <el-collapse v-else accordion>
+              <template v-else>
+              <div class="chapter-toolbar" v-if="hasDraftChapters">
+                <el-button type="primary" size="small" :loading="publishAllLoading" @click="handlePublishAll">
+                  全部发布
+                </el-button>
+                <span class="chapter-toolbar-hint">共 {{ draftCount }} 章待发布</span>
+              </div>
+              <el-collapse accordion>
                 <el-collapse-item
                   v-for="chapter in detail.novelChapters"
                   :key="chapter.id"
@@ -148,8 +155,25 @@
                 >
                   <template #title>
                     <div class="chapter-header">
-                      <span>第 {{ chapter.chapterNumber }} 章：{{ chapter.chapterTitle }}</span>
+                      <span class="chapter-title-text">
+                        <el-tag
+                          :type="chapter.status === 'PUBLISHED' ? 'success' : 'info'"
+                          size="small"
+                          class="chapter-status-tag"
+                        >{{ chapter.status === 'PUBLISHED' ? '已发布' : '草稿' }}</el-tag>
+                        第 {{ chapter.chapterNumber }} 章：{{ chapter.chapterTitle }}
+                      </span>
                       <span class="chapter-actions" @click.stop>
+                        <el-button
+                          v-if="chapter.status === 'DRAFT'"
+                          size="small" link type="success" :icon="Check"
+                          @click.stop="handlePublishChapter(chapter)"
+                        >发布</el-button>
+                        <el-button
+                          v-else
+                          size="small" link type="warning" :icon="Close"
+                          @click.stop="handleUnpublishChapter(chapter)"
+                        >撤回</el-button>
                         <span v-if="detail.isPaid" class="chapter-price-tag">
                           <template v-if="chapter.price != null">
                             ¥{{ chapter.price }}
@@ -181,6 +205,7 @@
                   <div v-else class="chapter-content">{{ chapter.chapterText }}</div>
                 </el-collapse-item>
               </el-collapse>
+              </template>
             </template>
           </el-card>
         </el-col>
@@ -226,7 +251,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Loading } from '@element-plus/icons-vue'
+import { ArrowLeft, Loading, Check, Close } from '@element-plus/icons-vue'
 import { contentApi, type ContentDetail, type ContentStatus, type NovelChapter } from '../api/content'
 
 const route = useRoute()
@@ -255,7 +280,15 @@ const rejectDialogVisible = ref(false)
 const rejectReason = ref('')
 
 const regeneratingChapterId = ref<number | null>(null)
+const publishAllLoading = ref(false)
 let pollingTimer: ReturnType<typeof setInterval> | null = null
+
+const hasDraftChapters = computed(() =>
+  detail.value?.novelChapters?.some(ch => ch.status === 'DRAFT') ?? false
+)
+const draftCount = computed(() =>
+  detail.value?.novelChapters?.filter(ch => ch.status === 'DRAFT').length ?? 0
+)
 
 // ── Computed ───────────────────────────────────────────────────────────────
 const comicImageUrls = computed(() => detail.value?.comicPages?.map(p => p.imageUrl) ?? [])
@@ -438,6 +471,48 @@ async function submitChapterPrice() {
   }
 }
 
+// ── Chapter Publish / Unpublish ──────────────────────────────────────────────
+async function handlePublishChapter(chapter: NovelChapter) {
+  try {
+    await contentApi.publishChapter(chapter.id)
+    ElMessage.success(`第 ${chapter.chapterNumber} 章已发布`)
+    await fetchDetail()
+  } catch { /* handled */ }
+}
+
+async function handleUnpublishChapter(chapter: NovelChapter) {
+  try {
+    await ElMessageBox.confirm(
+      `确定撤回「第 ${chapter.chapterNumber} 章」？撤回后读者将无法看到此章节。`,
+      '撤回确认',
+      { confirmButtonText: '确认撤回', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch { return }
+  try {
+    await contentApi.unpublishChapter(chapter.id)
+    ElMessage.success(`第 ${chapter.chapterNumber} 章已撤回`)
+    await fetchDetail()
+  } catch { /* handled */ }
+}
+
+async function handlePublishAll() {
+  if (!detail.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确定将全部 ${draftCount.value} 章草稿一键发布？`,
+      '全部发布确认',
+      { confirmButtonText: '全部发布', cancelButtonText: '取消', type: 'info' }
+    )
+  } catch { return }
+  publishAllLoading.value = true
+  try {
+    await contentApi.publishAllChapters(detail.value.id)
+    ElMessage.success('全部章节已发布')
+    await fetchDetail()
+  } catch { /* handled */ }
+  finally { publishAllLoading.value = false }
+}
+
 // ── Regenerate Chapter ──────────────────────────────────────────────────────
 async function handleRegenerateChapter(chapter: NovelChapter) {
   try {
@@ -547,10 +622,10 @@ onUnmounted(stopPolling)
 }
 
 .meta-desc :deep(.el-descriptions__content) {
-  max-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 200px;
 }
 
 .review-actions {
@@ -606,6 +681,36 @@ onUnmounted(stopPolling)
   overflow-y: auto;
 }
 
+.chapter-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #f0f9eb;
+  border-radius: 6px;
+}
+
+.chapter-toolbar-hint {
+  font-size: 13px;
+  color: #67c23a;
+}
+
+.chapter-status-tag {
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.chapter-title-text {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
 .chapter-content {
   white-space: pre-wrap;
   line-height: 1.8;
@@ -626,7 +731,7 @@ onUnmounted(stopPolling)
   overflow: hidden;
 }
 
-.chapter-header > span:first-child {
+.chapter-header > .chapter-title-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

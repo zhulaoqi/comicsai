@@ -163,7 +163,8 @@ public class StorylineService {
             existing.setImageProvider(dto.getImageProvider());
             existing.setImageModel(dto.getImageModel());
             existing.setTemperature(dto.getTemperature() != null ? dto.getTemperature() : 0.7);
-            existing.setMaxTokens(dto.getMaxTokens() != null ? dto.getMaxTokens() : 2000);
+            existing.setMaxTokens(dto.getMaxTokens() != null ? dto.getMaxTokens() : 8192);
+            existing.setChapterWordCount(dto.getChapterWordCount() != null ? dto.getChapterWordCount() : 2000);
             existing.setImageStyle(dto.getImageStyle());
             existing.setImageSize(dto.getImageSize());
             existing.setUpdatedAt(LocalDateTime.now());
@@ -177,7 +178,8 @@ public class StorylineService {
             config.setImageProvider(dto.getImageProvider());
             config.setImageModel(dto.getImageModel());
             config.setTemperature(dto.getTemperature() != null ? dto.getTemperature() : 0.7);
-            config.setMaxTokens(dto.getMaxTokens() != null ? dto.getMaxTokens() : 2000);
+            config.setMaxTokens(dto.getMaxTokens() != null ? dto.getMaxTokens() : 8192);
+            config.setChapterWordCount(dto.getChapterWordCount() != null ? dto.getChapterWordCount() : 2000);
             config.setImageStyle(dto.getImageStyle());
             config.setImageSize(dto.getImageSize());
             config.setCreatedAt(LocalDateTime.now());

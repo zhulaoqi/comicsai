@@ -161,12 +161,15 @@ public class ContentService {
         }
     }
 
+    @Transactional
     public void toggleContentStatus(Long contentId, String action) {
         ContentStatus targetStatus;
         if ("offline".equalsIgnoreCase(action)) {
             targetStatus = ContentStatus.OFFLINE;
+            unpublishAllChapters(contentId);
         } else if ("online".equalsIgnoreCase(action)) {
             targetStatus = ContentStatus.PUBLISHED;
+            publishAllChapters(contentId);
         } else {
             throw new BusinessException(400, "无效的操作: " + action);
         }
@@ -399,6 +402,50 @@ public class ContentService {
     }
 
     @Transactional
+    public void publishChapter(Long chapterId) {
+        NovelChapter chapter = novelChapterMapper.selectById(chapterId);
+        if (chapter == null) {
+            throw new EntityNotFoundException("章节", chapterId);
+        }
+        chapter.setStatus("PUBLISHED");
+        novelChapterMapper.updateById(chapter);
+    }
+
+    @Transactional
+    public void unpublishChapter(Long chapterId) {
+        NovelChapter chapter = novelChapterMapper.selectById(chapterId);
+        if (chapter == null) {
+            throw new EntityNotFoundException("章节", chapterId);
+        }
+        chapter.setStatus("DRAFT");
+        novelChapterMapper.updateById(chapter);
+    }
+
+    @Transactional
+    public void publishAllChapters(Long contentId) {
+        LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NovelChapter::getContentId, contentId)
+               .eq(NovelChapter::getStatus, "DRAFT");
+        List<NovelChapter> drafts = novelChapterMapper.selectList(wrapper);
+        for (NovelChapter ch : drafts) {
+            ch.setStatus("PUBLISHED");
+            novelChapterMapper.updateById(ch);
+        }
+    }
+
+    @Transactional
+    public void unpublishAllChapters(Long contentId) {
+        LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NovelChapter::getContentId, contentId)
+               .eq(NovelChapter::getStatus, "PUBLISHED");
+        List<NovelChapter> published = novelChapterMapper.selectList(wrapper);
+        for (NovelChapter ch : published) {
+            ch.setStatus("DRAFT");
+            novelChapterMapper.updateById(ch);
+        }
+    }
+
+    @Transactional
     public void batchSetContentPaid(List<Long> contentIds, Boolean isPaid, BigDecimal price) {
         for (Long contentId : contentIds) {
             setContentPaid(contentId, isPaid, price);
@@ -423,6 +470,7 @@ public class ContentService {
         if (content.getContentType() == ContentType.NOVEL) {
             LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(NovelChapter::getContentId, contentId);
+            wrapper.eq(NovelChapter::getStatus, "PUBLISHED");
             wrapper.orderByAsc(NovelChapter::getChapterNumber);
             List<NovelChapter> chapters = novelChapterMapper.selectList(wrapper);
 

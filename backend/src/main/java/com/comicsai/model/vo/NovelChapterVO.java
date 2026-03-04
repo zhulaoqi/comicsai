@@ -12,6 +12,7 @@ public class NovelChapterVO {
     private String chapterTitle;
     private String chapterText;
     private String chapterSummary;
+    private String status;
     private BigDecimal price;
     private boolean accessible;
     private BigDecimal chapterPrice;
@@ -26,6 +27,7 @@ public class NovelChapterVO {
         vo.setChapterTitle(ch.getChapterTitle());
         vo.setChapterText(accessible ? ch.getChapterText() : null);
         vo.setChapterSummary(ch.getChapterSummary());
+        vo.setStatus(ch.getStatus());
         vo.setPrice(ch.getPrice());
         vo.setAccessible(accessible);
         vo.setChapterPrice(effectivePrice);
@@ -49,6 +51,9 @@ public class NovelChapterVO {
 
     public String getChapterSummary() { return chapterSummary; }
     public void setChapterSummary(String chapterSummary) { this.chapterSummary = chapterSummary; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }

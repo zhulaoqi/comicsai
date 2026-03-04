@@ -50,59 +50,54 @@
       v-loading="loading"
       border
       stripe
+      style="width:100%"
       @selection-change="handleSelectionChange"
     >
-      <el-table-column type="selection" width="50" />
-      <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
-      <el-table-column prop="contentType" label="类型" width="80">
+      <el-table-column type="selection" width="44" />
+      <el-table-column prop="title" label="标题" min-width="140" show-overflow-tooltip />
+      <el-table-column prop="contentType" label="类型" width="70" align="center">
         <template #default="{ row }">
           <el-tag :type="row.contentType === 'COMIC' ? 'primary' : 'success'" size="small">
             {{ row.contentType === 'COMIC' ? '漫画' : '小说' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="110">
+      <el-table-column prop="status" label="状态" width="100" align="center">
         <template #default="{ row }">
           <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="付费" width="80" align="center">
+      <el-table-column label="付费" width="100" align="center">
         <template #default="{ row }">
-          <el-tag v-if="row.isPaid" type="warning" size="small">付费</el-tag>
+          <template v-if="row.isPaid">
+            <span v-if="row.contentType === 'NOVEL' && row.defaultChapterPrice" class="price-text">¥{{ row.defaultChapterPrice }}/章</span>
+            <span v-else-if="row.price != null" class="price-text">¥{{ row.price }}</span>
+            <el-tag v-else type="warning" size="small">付费</el-tag>
+          </template>
           <span v-else class="text-muted">免费</span>
         </template>
       </el-table-column>
-      <el-table-column label="价格" width="120" align="center">
-        <template #default="{ row }">
-          <template v-if="row.isPaid">
-            <span v-if="row.contentType === 'NOVEL' && row.defaultChapterPrice">每章 ¥{{ row.defaultChapterPrice }}</span>
-            <span v-else-if="row.price != null">¥{{ row.price }}</span>
-            <span v-else>付费</span>
-          </template>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="storylineId" label="故事线ID" width="100" align="center">
+      <el-table-column prop="storylineId" label="故事线" width="80" align="center">
         <template #default="{ row }">{{ row.storylineId || '-' }}</template>
       </el-table-column>
       <el-table-column prop="createdAt" label="创建时间" width="160">
         <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="300" fixed="right" class-name="col-actions">
         <template #default="{ row }">
-          <el-button size="small" @click="goReview(row.id)">查看/审核</el-button>
-          <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
+          <el-button size="small" link type="primary" :icon="View" @click="goReview(row.id)">审核</el-button>
+          <el-button size="small" link type="primary" :icon="Edit" @click="openEditDialog(row)">编辑</el-button>
           <el-button
             v-if="row.status === 'PENDING_PUBLISH'"
-            size="small" type="success"
+            size="small" link type="success" :icon="Top"
             @click="handlePublish(row)"
           >上架</el-button>
           <el-button
             v-if="row.status === 'PUBLISHED'"
-            size="small" type="warning"
+            size="small" link type="warning" :icon="Bottom"
             @click="handleUnpublish(row)"
           >下架</el-button>
-          <el-button size="small" type="info" @click="openPaidDialog(row)">付费设置</el-button>
+          <el-button size="small" link type="info" :icon="PriceTag" @click="openPaidDialog(row)">付费</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -187,6 +182,7 @@ import {
   type ContentStatus,
   type ContentType,
 } from '../api/content'
+import { View, Edit, Top, Bottom, PriceTag } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
@@ -293,6 +289,7 @@ function handleSelectionChange(rows: ContentItem[]) {
 function goReview(id: number) {
   router.push({ name: 'ContentReview', params: { id } })
 }
+
 
 // ── Edit ───────────────────────────────────────────────────────────────────
 function openEditDialog(row: ContentItem) {
@@ -472,8 +469,21 @@ onMounted(fetchList)
   font-size: 13px;
 }
 
+.price-text {
+  font-size: 13px;
+  color: #e6a23c;
+  font-weight: 500;
+}
+
 .pagination {
   margin-top: 16px;
   justify-content: flex-end;
+}
+
+:deep(.col-actions .cell) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 </style>

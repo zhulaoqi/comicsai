@@ -106,6 +106,24 @@ public class ContentManageController {
         return ApiResponse.success("重新生成任务已提交，请稍后刷新查看结果", null);
     }
 
+    @PutMapping("/chapters/{chapterId}/publish")
+    public ApiResponse<Void> publishChapter(@PathVariable Long chapterId) {
+        contentService.publishChapter(chapterId);
+        return ApiResponse.success();
+    }
+
+    @PutMapping("/chapters/{chapterId}/unpublish")
+    public ApiResponse<Void> unpublishChapter(@PathVariable Long chapterId) {
+        contentService.unpublishChapter(chapterId);
+        return ApiResponse.success();
+    }
+
+    @PutMapping("/{id}/chapters/publish-all")
+    public ApiResponse<Void> publishAllChapters(@PathVariable Long id) {
+        contentService.publishAllChapters(id);
+        return ApiResponse.success();
+    }
+
     @PostMapping("/batch-paid")
     public ApiResponse<Void> batchSetContentPaid(@Valid @RequestBody BatchPaidDTO dto) {
         contentService.batchSetContentPaid(dto.getContentIds(), dto.getIsPaid(), dto.getPrice());

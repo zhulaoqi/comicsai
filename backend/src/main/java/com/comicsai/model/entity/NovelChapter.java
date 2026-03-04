@@ -28,6 +28,9 @@ public class NovelChapter {
     @TableField("chapter_summary")
     private String chapterSummary;
 
+    @TableField("status")
+    private String status;
+
     @TableField("price")
     private BigDecimal price;
 
@@ -50,6 +53,9 @@ public class NovelChapter {
 
     public String getChapterSummary() { return chapterSummary; }
     public void setChapterSummary(String chapterSummary) { this.chapterSummary = chapterSummary; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }

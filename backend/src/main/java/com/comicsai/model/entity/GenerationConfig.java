@@ -34,6 +34,9 @@ public class GenerationConfig {
     @TableField("max_tokens")
     private Integer maxTokens;
 
+    @TableField("chapter_word_count")
+    private Integer chapterWordCount;
+
     @TableField("image_style")
     private String imageStyle;
 
@@ -71,6 +74,9 @@ public class GenerationConfig {
 
     public Integer getMaxTokens() { return maxTokens; }
     public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
+
+    public Integer getChapterWordCount() { return chapterWordCount; }
+    public void setChapterWordCount(Integer chapterWordCount) { this.chapterWordCount = chapterWordCount; }
 
     public String getImageStyle() { return imageStyle; }
     public void setImageStyle(String imageStyle) { this.imageStyle = imageStyle; }
