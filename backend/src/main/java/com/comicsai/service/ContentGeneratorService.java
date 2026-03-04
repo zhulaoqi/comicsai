@@ -55,6 +55,18 @@ public class ContentGeneratorService {
     }
 
     /**
+     * Async entry point for manual trigger — returns immediately, runs in background.
+     */
+    @org.springframework.scheduling.annotation.Async
+    public void generateContentAsync(Storyline storyline) {
+        try {
+            generateContentForStoryline(storyline);
+        } catch (Exception e) {
+            log.error("Async content generation failed for storyline {}: {}", storyline.getId(), e.getMessage(), e);
+        }
+    }
+
+    /**
      * Generate content for all enabled storylines.
      * Called by the scheduler (ContentGenerationJob).
      */
@@ -417,8 +429,8 @@ public class ContentGeneratorService {
 
     GenerationConfig getDefaultGenerationConfig() {
         GenerationConfig config = new GenerationConfig();
-        config.setTextProvider("gemini");
-        config.setTextModel("gemini-1.5-flash");
+        config.setTextProvider("qwen");
+        config.setTextModel("qwen-max");
         config.setImageProvider("wanxiang");
         config.setImageModel("wanx-v1");
         config.setTemperature(0.7);

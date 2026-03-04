@@ -3,9 +3,14 @@
     <!-- Header -->
     <div class="page-header">
       <h2>故事线管理</h2>
-      <el-button type="primary" @click="openCreateDialog">
-        <el-icon><Plus /></el-icon> 新建故事线
-      </el-button>
+      <div style="display:flex;gap:8px">
+        <el-button @click="fetchStorylines" :loading="loading">
+          <el-icon><Refresh /></el-icon> 刷新
+        </el-button>
+        <el-button type="primary" @click="openCreateDialog">
+          <el-icon><Plus /></el-icon> 新建故事线
+        </el-button>
+      </div>
     </div>
 
     <!-- Table -->
@@ -22,7 +27,7 @@
       <el-table-column prop="status" label="状态" width="100">
         <template #default="{ row }">
           <el-switch
-            :model-value="row.status === 'ACTIVE'"
+            :model-value="row.status === 'ENABLED'"
             @change="(val: boolean) => handleToggleStatus(row, val)"
             :loading="togglingId === row.id"
           />
@@ -121,7 +126,6 @@
         <el-divider content-position="left">文本生成</el-divider>
         <el-form-item label="文本 Provider" prop="textProvider">
           <el-select v-model="configForm.textProvider" placeholder="选择Provider" style="width:100%" @change="onTextProviderChange">
-            <el-option label="Gemini" value="gemini" />
             <el-option label="通义千问 (Qwen)" value="qwen" />
           </el-select>
         </el-form-item>
@@ -176,7 +180,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Refresh } from '@element-plus/icons-vue'
 import { storylineApi, type Storyline, type StorylineForm, type GenerationConfig } from '../api/storyline'
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -210,8 +214,8 @@ const configSubmitting = ref(false)
 const configFormRef = ref<FormInstance>()
 
 const configForm = reactive<GenerationConfig>({
-  textProvider: 'gemini',
-  textModel: 'gemini-2.0-flash',
+  textProvider: 'qwen',
+  textModel: 'qwen-max',
   imageProvider: 'wanxiang',
   imageModel: 'wanx-v1',
   textTemperature: 0.8,
@@ -223,11 +227,6 @@ const configForm = reactive<GenerationConfig>({
 const genreOptions = ['奇幻', '科幻', '武侠', '都市', '历史', '悬疑', '言情', '恐怖', '其他']
 
 const textModels: Record<string, { label: string; value: string }[]> = {
-  gemini: [
-    { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
-    { label: 'Gemini 1.5 Pro', value: 'gemini-1.5-pro' },
-    { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash' },
-  ],
   qwen: [
     { label: 'Qwen-Max', value: 'qwen-max' },
     { label: 'Qwen-Plus', value: 'qwen-plus' },
@@ -375,7 +374,7 @@ async function handleToggleStatus(row: Storyline, active: boolean) {
   togglingId.value = row.id
   try {
     await storylineApi.toggleStatus(row.id, newStatus)
-    row.status = active ? 'ACTIVE' : 'INACTIVE'
+    row.status = active ? 'ENABLED' : 'DISABLED'
     ElMessage.success(`已${label}`)
   } catch {
     // error handled by interceptor
@@ -386,19 +385,14 @@ async function handleToggleStatus(row: Storyline, active: boolean) {
 
 // ── Manual Generate ────────────────────────────────────────────────────────
 async function handleGenerate(row: Storyline) {
-  if (row.status !== 'ACTIVE') {
+  if (row.status !== 'ENABLED') {
     ElMessage.warning('请先启用该故事线再生成内容')
     return
   }
   generatingId.value = row.id
   try {
-    const res = await storylineApi.generate(row.id)
-    if (res.code !== 200) {
-      ElMessage.error(res.message || '生成失败')
-    } else {
-      ElMessage.success('生成成功，内容已进入审核队列')
-      fetchStorylines()
-    }
+    await storylineApi.generate(row.id)
+    ElMessage.success('生成任务已提交，请稍后点击刷新查看结果')
   } catch {
     // error handled by interceptor
   } finally {

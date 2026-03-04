@@ -36,8 +36,7 @@ public class AiProviderFactory {
             @Value("${ai.qwen.api-key:}") String qwenApiKey,
             @Value("${ai.qwen.base-url:https://dashscope.aliyuncs.com}") String qwenBaseUrl) {
 
-        // Register text providers (insertion order = fallback order)
-        textProviders.put("gemini", new GeminiTextProvider(geminiApiKey));
+        // Register text providers
         textProviders.put("qwen", new QwenTextProvider(qwenApiKey, qwenBaseUrl));
 
         // Register image providers

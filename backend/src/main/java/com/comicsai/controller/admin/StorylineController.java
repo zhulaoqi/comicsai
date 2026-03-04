@@ -7,7 +7,6 @@ import com.comicsai.model.dto.StorylineQueryDTO;
 import com.comicsai.model.dto.StorylineUpdateDTO;
 import com.comicsai.model.entity.GenerationConfig;
 import com.comicsai.model.entity.Storyline;
-import com.comicsai.model.entity.Content;
 import com.comicsai.model.enums.ContentType;
 import com.comicsai.model.enums.StorylineStatus;
 import com.comicsai.model.vo.GenerationConfigVO;
@@ -94,10 +93,7 @@ public class StorylineController {
     @PostMapping("/{id}/generate")
     public ApiResponse<Void> triggerGeneration(@PathVariable Long id) {
         Storyline storyline = storylineService.getStorylineById(id);
-        Content result = contentGeneratorService.generateContentForStoryline(storyline);
-        if (result == null) {
-            return ApiResponse.error(500, "内容生成失败，请检查AI配置和API Key是否正确");
-        }
-        return ApiResponse.success();
+        contentGeneratorService.generateContentAsync(storyline);
+        return ApiResponse.success("生成任务已提交，请稍后刷新查看结果", null);
     }
 }

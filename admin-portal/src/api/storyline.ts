@@ -5,7 +5,7 @@ export interface Storyline {
   title: string
   genre: string
   contentType: 'COMIC' | 'NOVEL'
-  status: 'ACTIVE' | 'INACTIVE'
+  status: 'ENABLED' | 'DISABLED'
   generatedCount: number
   createdAt: string
 }
