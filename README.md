@@ -97,9 +97,7 @@
 
 ## 架构图
 
-> 下方图中的节点均可点击，跳转到对应目录或关键文件。
-
-### 1) 系统总览（可点击）
+### 1) 系统总览
 
 ```mermaid
 flowchart LR
@@ -113,21 +111,9 @@ flowchart LR
     AI --> Q[Qwen 通义千问<br/>文本生成]
     AI --> G[Gemini<br/>文本生成]
     AI --> W[Wanxiang 通义万相<br/>图像生成]
-
-    click U "./reader-app" "查看用户端代码"
-    click A "./admin-portal" "查看管理端代码"
-    click N "./nginx.conf" "查看 Nginx 配置"
-    click B "./backend" "查看后端代码"
-    click M "./backend/src/main/resources/application.yml" "查看数据库配置"
-    click R "./backend/src/main/resources/application.yml" "查看 Redis 配置"
-    click F "./backend/src/main/resources/application.yml" "查看文件存储配置"
-    click AI "./backend/src/main/java/com/comicsai/ai" "查看 AI 引擎代码"
-    click Q "./backend/src/main/java/com/comicsai/ai/model/qwen" "查看 Qwen 实现"
-    click G "./backend/src/main/java/com/comicsai/ai/model/gemini" "查看 Gemini 实现"
-    click W "./backend/src/main/java/com/comicsai/ai/model/qwen/WanxiangImageModel.java" "查看万相实现"
 ```
 
-### 2) 请求链路（可点击）
+### 2) 请求链路
 
 ```mermaid
 sequenceDiagram
@@ -147,8 +133,6 @@ sequenceDiagram
     Nginx-->>Reader: 返回用户端
     Nginx-->>Admin: 返回管理端
 ```
-
-> 关键入口：[`reader-app/src`](./reader-app/src) · [`admin-portal/src`](./admin-portal/src) · [`backend/src/main/java/com/comicsai/controller`](./backend/src/main/java/com/comicsai/controller)
 
 ### 3) AI 分层架构（AgentScope 设计）
 
@@ -183,21 +167,9 @@ flowchart TB
     CA --> MR
     MR --> CM1 & CM2 & IM1
     CM1 & CM2 & IM1 -.->|传递| MSG
-
-    click CP "./backend/src/main/java/com/comicsai/ai/pipeline/ComicPipeline.java"
-    click NP "./backend/src/main/java/com/comicsai/ai/pipeline/NovelPipeline.java"
-    click SA "./backend/src/main/java/com/comicsai/ai/agent/StoryboardAgent.java"
-    click NW "./backend/src/main/java/com/comicsai/ai/agent/NovelWriterAgent.java"
-    click CA "./backend/src/main/java/com/comicsai/ai/agent/CoverArtAgent.java"
-    click SU "./backend/src/main/java/com/comicsai/ai/agent/SummaryAgent.java"
-    click MR "./backend/src/main/java/com/comicsai/ai/model/ModelRegistry.java"
-    click CM1 "./backend/src/main/java/com/comicsai/ai/model/qwen/QwenChatModel.java"
-    click CM2 "./backend/src/main/java/com/comicsai/ai/model/gemini/GeminiChatModel.java"
-    click IM1 "./backend/src/main/java/com/comicsai/ai/model/qwen/WanxiangImageModel.java"
-    click MSG "./backend/src/main/java/com/comicsai/ai/message/Msg.java"
 ```
 
-### 4) 内容生产与发布链路（可点击）
+### 4) 内容生产与发布链路
 
 ```mermaid
 flowchart TD
@@ -210,14 +182,6 @@ flowchart TD
     CONTENT --> ADMIN[管理端审核<br/>通过 → PENDING_PUBLISH]
     ADMIN --> PUB[定时发布 06:00<br/>PENDING_PUBLISH → PUBLISHED]
     PUB --> READER[用户端可见]
-
-    click SJ "./backend/src/main/java/com/comicsai/scheduler/ContentGenerationJob.java" "查看生成任务"
-    click CGS "./backend/src/main/java/com/comicsai/service/ContentGeneratorService.java" "查看生成服务"
-    click CP "./backend/src/main/java/com/comicsai/ai/pipeline/ComicPipeline.java" "查看漫画流水线"
-    click NP "./backend/src/main/java/com/comicsai/ai/pipeline/NovelPipeline.java" "查看小说流水线"
-    click ADMIN "./admin-portal/src/views/ContentReview.vue" "查看审核页面"
-    click PUB "./backend/src/main/java/com/comicsai/scheduler/ContentPublishingJob.java" "查看发布任务"
-    click READER "./reader-app/src/views" "查看用户端页面"
 ```
 
 ## 快速开始
